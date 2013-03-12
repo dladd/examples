@@ -1,5 +1,5 @@
 !> \file
-!> \author Tim Wu
+!> \author Tim Wu & Thiranja Prasad Babarenda Gamage
 !> \brief This is an example program to solve 3D data points embedding in 3D cartesian elements using openCMISS calls.
 !>
 !> \section LICENSE
@@ -24,7 +24,7 @@
 !> of Oxford are Copyright (C) 2007 by the University of Auckland and
 !> the University of Oxford. All Rights Reserved.
 !>
-!> Contributor(s): Code based on the examples by Kumar Mithraratne and Prasad Babarenda Gamage
+!> Contributor(s):
 !>
 !> Alternatively, the contents of this file may be used under the terms of
 !> either the GNU General Public License Version 2 or later (the "GPL"), or
@@ -39,10 +39,11 @@
 !> the terms of any one of the MPL, the GPL or the LGPL.
 
 !> Main program
-PROGRAM DataProjection1DRectangularCartesian
+PROGRAM DataProjection3DRectangularCartesian
 
-  USE MPI
   USE OPENCMISS
+  USE MPI
+
 
 #ifdef WIN32
   USE IFQWIN
@@ -50,59 +51,54 @@ PROGRAM DataProjection1DRectangularCartesian
 
   IMPLICIT NONE
 
-  !Program parameters
-  INTEGER(CMISSIntg),PARAMETER :: BasisUserNumber=1  
-  INTEGER(CMISSIntg),PARAMETER :: CoordinateSystemDimension=3
-  INTEGER(CMISSIntg),PARAMETER :: CoordinateSystemUserNumber=1
-  INTEGER(CMISSIntg),PARAMETER :: DecompositionUserNumber=1
-  INTEGER(CMISSIntg),PARAMETER :: FieldUserNumber=1  
-  INTEGER(CMISSIntg),PARAMETER :: MeshUserNumber=1
-  INTEGER(CMISSIntg),PARAMETER :: RegionUserNumber=1
+  !Test program parameters
 
-  REAL(CMISSDP), PARAMETER :: CoordinateSystemOrigin(3)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/)  
+  REAL(CMISSDP), PARAMETER :: HEIGHT=1.0_CMISSDP
+  REAL(CMISSDP), PARAMETER :: WIDTH=2.0_CMISSDP
+  REAL(CMISSDP), PARAMETER :: LENGTH=3.0_CMISSDP
+
+  INTEGER(CMISSIntg), PARAMETER :: CoordinateSystemUserNumber=1
+  INTEGER(CMISSIntg), PARAMETER :: RegionUserNumber=2
+  INTEGER(CMISSIntg), PARAMETER :: BasisUserNumber=3
+  INTEGER(CMISSIntg), PARAMETER :: GeneratedMeshUserNumber=4
+  INTEGER(CMISSIntg), PARAMETER :: MeshUserNumber=5
+  INTEGER(CMISSIntg), PARAMETER :: DecompositionUserNumber=6
+  INTEGER(CMISSIntg), PARAMETER :: GeometricFieldUserNumber=7
+  INTEGER(CMISSIntg), PARAMETER :: DataProjectionUserNumber = 1
+ 
   !Program types
-
-  !Program variables   
-  INTEGER(CMISSIntg) :: MeshComponentNumber=1
-  INTEGER(CMISSIntg) :: NumberOfDataPoints 
-  INTEGER(CMISSIntg) :: MeshDimensions=3
-  INTEGER(CMISSIntg) :: MeshNumberOfElements
-  INTEGER(CMISSIntg) :: MeshNumberOfComponents=1
-  INTEGER(CMISSIntg) :: NumberOfDomains=1 !NumberOfDomains=2 for parallel processing, need to set up MPI
-  INTEGER(CMISSIntg) :: NumberOfNodes
-  INTEGER(CMISSIntg) :: NumberOfXi=3
-  INTEGER(CMISSIntg) :: BasisInterpolation(3)=(/CMISS_BASIS_CUBIC_HERMITE_INTERPOLATION,CMISS_BASIS_CUBIC_HERMITE_INTERPOLATION, &
-    & CMISS_BASIS_CUBIC_HERMITE_INTERPOLATION/)
-  INTEGER(CMISSIntg) :: WorldCoordinateSystemUserNumber
-  INTEGER(CMISSIntg) :: WorldRegionUserNumber
   
-  INTEGER(CMISSIntg) :: FieldNumberOfVariables=1
-  INTEGER(CMISSIntg) :: FieldNumberOfComponents=3 
-  
+  !Program variables
 
-  INTEGER(CMISSIntg) :: data_point_idx,elem_idx,ver_idx,der_idx,node_idx,comp_idx
-    
-  REAL(CMISSDP), DIMENSION(5,3) :: DataPointValues !(number_of_data_points,dimension)
-  REAL(CMISSDP), DIMENSION(5) :: DataPointProjectionDistance !(number_of_data_points)
-  INTEGER(CMISSIntg), DIMENSION(5) :: DataPointProjectionElementNumber !(number_of_data_points)
-  INTEGER(CMISSIntg), DIMENSION(5) :: DataPointProjectionExitTag !(number_of_data_points)
-  REAL(CMISSDP), DIMENSION(5,3) :: DataPointProjectionXi !(number_of_data_points,MeshDimensions)  
-  INTEGER(CMISSIntg), DIMENSION(1,8) :: ElementUserNodes  
-  REAL(CMISSDP), DIMENSION(8,8,3) :: FieldValues
-        
+  INTEGER(CMISSIntg) :: NUMBER_OF_ARGUMENTS,ARGUMENT_LENGTH,STATUS
+  INTEGER(CMISSIntg) :: NUMBER_GLOBAL_X_ELEMENTS,NUMBER_GLOBAL_Y_ELEMENTS,NUMBER_GLOBAL_Z_ELEMENTS, &
+    & INTERPOLATION_TYPE,NUMBER_OF_GAUSS_XI
+  INTEGER(CMISSIntg) :: numberOfDataPoints,dataPointGlobalNumber
+  REAL(CMISSDP) :: dataPointProjectionDistance
+  CHARACTER(LEN=255) :: COMMAND_ARGUMENT,Filename
+
+  !CMISS variables
+
+  TYPE(CMISSBasisType) :: Basis
+  TYPE(CMISSCoordinateSystemType) :: CoordinateSystem,WorldCoordinateSystem
+  TYPE(CMISSDecompositionType) :: Decomposition
+  TYPE(CMISSFieldType) :: GeometricField
+  TYPE(CMISSGeneratedMeshType) :: GeneratedMesh  
+  TYPE(CMISSMeshType) :: Mesh
+  TYPE(CMISSRegionType) :: Region,WorldRegion
+  TYPE(CMISSDataPointsType) :: DataPoints
+  TYPE(CMISSDataProjectionType) :: DataProjection
+
 #ifdef WIN32
   !Quickwin type
   LOGICAL :: QUICKWIN_STATUS=.FALSE.
   TYPE(WINDOWCONFIG) :: QUICKWIN_WINDOW_CONFIG
 #endif
-
-  !Generic CMISS and MPI variables
+  
+  !Generic CMISS variables
+  
+  INTEGER(CMISSIntg) :: NumberOfComputationalNodes,ComputationalNodeNumber
   INTEGER(CMISSIntg) :: Err
-  INTEGER(CMISSIntg) :: NUMBER_GLOBAL_X_ELEMENTS=1 !<number of elements on x axis
-  INTEGER(CMISSIntg) :: NUMBER_GLOBAL_Y_ELEMENTS=1 !<number of elements on y axis
-  INTEGER(CMISSIntg) :: NUMBER_GLOBAL_Z_ELEMENTS=1 !<number of elements on z axis  
-  INTEGER(CMISSIntg) :: NUMBER_OF_DOMAINS=1      
-  INTEGER(CMISSIntg) :: MPI_IERROR  
   
 #ifdef WIN32
   !Initialise QuickWin
@@ -114,228 +110,198 @@ PROGRAM DataProjection1DRectangularCartesian
   !If attempt fails set with system estimated values
   IF(.NOT.QUICKWIN_STATUS) QUICKWIN_STATUS=SETWINDOWCONFIG(QUICKWIN_WINDOW_CONFIG)
 #endif
-    
-  !Intialise 5 data points
-  DataPointValues(1,:)=(/0.1_CMISSDP,0.8_CMISSDP,1.0_CMISSDP/)
-  DataPointValues(2,:)=(/0.5_CMISSDP,0.5_CMISSDP,0.5_CMISSDP/)  
-  DataPointValues(3,:)=(/0.2_CMISSDP,0.5_CMISSDP,0.5_CMISSDP/)  
-  DataPointValues(4,:)=(/0.9_CMISSDP,0.6_CMISSDP,0.9_CMISSDP/)
-  DataPointValues(5,:)=(/0.3_CMISSDP,0.3_CMISSDP,0.3_CMISSDP/)
-  NumberOfDataPoints=SIZE(DataPointValues,1)
-  
-  !Intialise 1 element
-  ElementUserNodes(1,:)=(/1,2,3,4,5,6,7,8/)     
-  MeshNumberOfElements=SIZE(ElementUserNodes,1)
-  
-  !Intialise 8 nodes for the element
-  FieldValues(1,1,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !no der, node 1
-  FieldValues(2,1,:)=(/1.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 der, node 1
-  FieldValues(3,1,:)=(/0.0_CMISSDP,1.0_CMISSDP,0.0_CMISSDP/) !s2 der, node 1  
-  FieldValues(4,1,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 der, node 1    
-  FieldValues(5,1,:)=(/0.0_CMISSDP,0.0_CMISSDP,1.0_CMISSDP/) !s3 der, node 1
-  FieldValues(6,1,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s3 der, node 1  
-  FieldValues(7,1,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s2 s3 der, node 1    
-  FieldValues(8,1,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 s3 der, node 1    
-  
-  FieldValues(1,2,:)=(/1.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !no der, node 2
-  FieldValues(2,2,:)=(/1.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 der, node 2
-  FieldValues(3,2,:)=(/0.0_CMISSDP,1.0_CMISSDP,0.0_CMISSDP/) !s2 der, node 2  
-  FieldValues(4,2,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 der, node 2    
-  FieldValues(5,2,:)=(/0.0_CMISSDP,0.0_CMISSDP,1.0_CMISSDP/) !s3 der, node 2
-  FieldValues(6,2,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s3 der, node 2  
-  FieldValues(7,2,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s2 s3 der, node 2    
-  FieldValues(8,2,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 s3 der, node 2     
-  
-  FieldValues(1,3,:)=(/0.0_CMISSDP,1.0_CMISSDP,0.0_CMISSDP/) !no der, node 3
-  FieldValues(2,3,:)=(/1.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 der, node 3
-  FieldValues(3,3,:)=(/0.0_CMISSDP,1.0_CMISSDP,0.0_CMISSDP/) !s2 der, node 3  
-  FieldValues(4,3,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 der, node 3    
-  FieldValues(5,3,:)=(/0.0_CMISSDP,0.0_CMISSDP,1.0_CMISSDP/) !s3 der, node 3
-  FieldValues(6,3,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s3 der, node 3  
-  FieldValues(7,3,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s2 s3 der, node 3    
-  FieldValues(8,3,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 s3 der, node 3
-  
-  FieldValues(1,4,:)=(/1.0_CMISSDP,1.0_CMISSDP,0.0_CMISSDP/) !no der, node 4
-  FieldValues(2,4,:)=(/1.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 der, node 4
-  FieldValues(3,4,:)=(/0.0_CMISSDP,1.0_CMISSDP,0.0_CMISSDP/) !s2 der, node 4  
-  FieldValues(4,4,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 der, node 4    
-  FieldValues(5,4,:)=(/0.0_CMISSDP,0.0_CMISSDP,1.0_CMISSDP/) !s3 der, node 4
-  FieldValues(6,4,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s3 der, node 4  
-  FieldValues(7,4,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s2 s3 der, node 4    
-  FieldValues(8,4,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 s3 der, node 4
-  
-  FieldValues(1,5,:)=(/0.0_CMISSDP,0.0_CMISSDP,1.0_CMISSDP/) !no der, node 5
-  FieldValues(2,5,:)=(/1.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 der, node 5
-  FieldValues(3,5,:)=(/0.0_CMISSDP,1.0_CMISSDP,0.0_CMISSDP/) !s2 der, node 5  
-  FieldValues(4,5,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 der, node 5    
-  FieldValues(5,5,:)=(/0.0_CMISSDP,0.0_CMISSDP,1.0_CMISSDP/) !s3 der, node 5
-  FieldValues(6,5,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s3 der, node 5  
-  FieldValues(7,5,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s2 s3 der, node 5    
-  FieldValues(8,5,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 s3 der, node 5    
-  
-  FieldValues(1,6,:)=(/1.0_CMISSDP,0.0_CMISSDP,1.0_CMISSDP/) !no der, node 6
-  FieldValues(2,6,:)=(/1.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 der, node 6
-  FieldValues(3,6,:)=(/0.0_CMISSDP,1.0_CMISSDP,0.0_CMISSDP/) !s2 der, node 6  
-  FieldValues(4,6,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 der, node 6    
-  FieldValues(5,6,:)=(/0.0_CMISSDP,0.0_CMISSDP,1.0_CMISSDP/) !s3 der, node 6
-  FieldValues(6,6,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s3 der, node 6  
-  FieldValues(7,6,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s2 s3 der, node 6    
-  FieldValues(8,6,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 s3 der, node 6     
-  
-  FieldValues(1,7,:)=(/0.0_CMISSDP,1.0_CMISSDP,1.0_CMISSDP/) !no der, node 7
-  FieldValues(2,7,:)=(/1.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 der, node 7
-  FieldValues(3,7,:)=(/0.0_CMISSDP,1.0_CMISSDP,0.0_CMISSDP/) !s2 der, node 7  
-  FieldValues(4,7,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 der, node 7    
-  FieldValues(5,7,:)=(/0.0_CMISSDP,0.0_CMISSDP,1.0_CMISSDP/) !s3 der, node 7
-  FieldValues(6,7,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s3 der, node 7  
-  FieldValues(7,7,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s2 s3 der, node 7    
-  FieldValues(8,7,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 s3 der, node 7
-  
-  FieldValues(1,8,:)=(/1.0_CMISSDP,1.0_CMISSDP,1.0_CMISSDP/) !no der, node 8
-  FieldValues(2,8,:)=(/1.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 der, node 8
-  FieldValues(3,8,:)=(/0.0_CMISSDP,1.0_CMISSDP,0.0_CMISSDP/) !s2 der, node 8  
-  FieldValues(4,8,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 der, node 8    
-  FieldValues(5,8,:)=(/0.0_CMISSDP,0.0_CMISSDP,1.0_CMISSDP/) !s3 der, node 8
-  FieldValues(6,8,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s3 der, node 8  
-  FieldValues(7,8,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s2 s3 der, node 8    
-  FieldValues(8,8,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 s3 der, node 8
-  NumberOfNodes=SIZE(FieldValues,2)
-  
-  !Intialise cmiss
-  CALL CMISSInitialise(WorldCoordinateSystemUserNumber,WorldRegionUserNumber,Err)
-  !Broadcast the number of Elements in the X & Y directions and the number of partitions to the other computational nodes
-  CALL MPI_BCAST(NUMBER_GLOBAL_X_ELEMENTS,1,MPI_INTEGER,0,MPI_COMM_WORLD,MPI_IERROR)
-  CALL MPI_BCAST(NUMBER_GLOBAL_Y_ELEMENTS,1,MPI_INTEGER,0,MPI_COMM_WORLD,MPI_IERROR)
-  CALL MPI_BCAST(NUMBER_GLOBAL_Z_ELEMENTS,1,MPI_INTEGER,0,MPI_COMM_WORLD,MPI_IERROR)
-  CALL MPI_BCAST(NUMBER_OF_DOMAINS,1,MPI_INTEGER,0,MPI_COMM_WORLD,MPI_IERROR)
 
-  !=========================================================================================================================
-  !Create RC coordinate system
-  CALL CMISSCoordinateSystem_CreateStart(CoordinateSystemUserNumber,Err)
-  CALL CMISSCoordinateSystem_TypeSet(CoordinateSystemUserNumber,CMISS_COORDINATE_RECTANGULAR_CARTESIAN_TYPE,Err)
-  CALL CMISSCoordinateSystem_DimensionSet(CoordinateSystemUserNumber,CoordinateSystemDimension,Err)
-  CALL CMISSCoordinateSystem_OriginSet(CoordinateSystemUserNumber,CoordinateSystemOrigin,Err)
-  CALL CMISSCoordinateSystem_CreateFinish(CoordinateSystemUserNumber,Err) 
+  NUMBER_OF_ARGUMENTS = COMMAND_ARGUMENT_COUNT()
+  IF(NUMBER_OF_ARGUMENTS >= 4) THEN
+    !If we have enough arguments then use the first four for setting up the problem. The subsequent arguments may be used to
+    !pass flags to, say, PETSc.
+    CALL GET_COMMAND_ARGUMENT(1,COMMAND_ARGUMENT,ARGUMENT_LENGTH,STATUS)
+    IF(STATUS>0) CALL HANDLE_ERROR("Error for command argument 1.")
+    READ(COMMAND_ARGUMENT(1:ARGUMENT_LENGTH),*) NUMBER_GLOBAL_X_ELEMENTS
+    IF(NUMBER_GLOBAL_X_ELEMENTS<=0) CALL HANDLE_ERROR("Invalid number of X elements.")
+    CALL GET_COMMAND_ARGUMENT(2,COMMAND_ARGUMENT,ARGUMENT_LENGTH,STATUS)
+    IF(STATUS>0) CALL HANDLE_ERROR("Error for command argument 2.")
+    READ(COMMAND_ARGUMENT(1:ARGUMENT_LENGTH),*) NUMBER_GLOBAL_Y_ELEMENTS
+    IF(NUMBER_GLOBAL_Y_ELEMENTS<=0) CALL HANDLE_ERROR("Invalid number of Y elements.")
+    CALL GET_COMMAND_ARGUMENT(3,COMMAND_ARGUMENT,ARGUMENT_LENGTH,STATUS)
+    IF(STATUS>0) CALL HANDLE_ERROR("Error for command argument 3.")
+    READ(COMMAND_ARGUMENT(1:ARGUMENT_LENGTH),*) NUMBER_GLOBAL_Z_ELEMENTS
+    IF(NUMBER_GLOBAL_Z_ELEMENTS<0) CALL HANDLE_ERROR("Invalid number of Z elements.")
+    CALL GET_COMMAND_ARGUMENT(4,COMMAND_ARGUMENT,ARGUMENT_LENGTH,STATUS)
+    IF(STATUS>0) CALL HANDLE_ERROR("Error for command argument 4.")
+    READ(COMMAND_ARGUMENT(1:ARGUMENT_LENGTH),*) INTERPOLATION_TYPE
+    IF(INTERPOLATION_TYPE<=0) CALL HANDLE_ERROR("Invalid Interpolation specification.")
+  ELSE
+    !If there are not enough arguments default the problem specification 
+    NUMBER_GLOBAL_X_ELEMENTS=2
+    NUMBER_GLOBAL_Y_ELEMENTS=2
+    NUMBER_GLOBAL_Z_ELEMENTS=2
+    INTERPOLATION_TYPE=1
+  ENDIF
+  
+  !Intialise OpenCMISS
+  CALL CMISSInitialise(WorldCoordinateSystem,WorldRegion,Err)
 
-  !=========================================================================================================================
-  !Create Region and set CS to newly created 3D RC CS
-  CALL CMISSRegion_CreateStart(RegionUserNumber,WorldRegionUserNumber,Err)
-  CALL CMISSRegion_CoordinateSystemSet(RegionUserNumber,CoordinateSystemUserNumber,Err)
-  CALL CMISSRegion_CreateFinish(RegionUserNumber,Err)
-    
-  !=========================================================================================================================
-  !Create Data Points and set the values
-  CALL CMISSDataPoints_CreateStart(RegionUserNumber,SIZE(DataPointValues,1),Err)
-  DO data_point_idx=1,NumberOfDataPoints
-    CALL CMISSDataPoints_ValuesSet(RegionUserNumber,data_point_idx,DataPointValues(data_point_idx,:),Err)     
-  ENDDO
-  CALL CMISSDataPoints_CreateFinish(RegionUserNumber,Err)  
-  !=========================================================================================================================
-  !Define basis function - 1D cubic hermite
-  CALL CMISSBasis_CreateStart(BasisUserNumber,Err)
-  CALL CMISSBasis_TypeSet(BasisUserNumber,CMISS_BASIS_LAGRANGE_HERMITE_TP_TYPE,Err)
-  CALL CMISSBasis_NumberOfXiSet(BasisUserNumber,NumberOfXi,Err)
-  CALL CMISSBasis_InterpolationXiSet(BasisUserNumber,BasisInterpolation,Err)
-  CALL CMISSBasis_CreateFinish(BasisUserNumber,Err)  
-  !=========================================================================================================================
-  !Create a mesh
-  CALL CMISSMesh_CreateStart(MeshUserNumber,RegionUserNumber,MeshDimensions,Err)
-  CALL CMISSMesh_NumberOfComponentsSet(RegionUserNumber,MeshUserNumber,MeshNumberOfComponents,Err)
-  CALL CMISSMesh_NumberOfElementsSet(RegionUserNumber,MeshUserNumber,MeshNumberOfElements,Err)
-  !define nodes for the mesh
-  CALL CMISSNodes_CreateStart(RegionUserNumber,NumberOfNodes,Err)
-  CALL CMISSNodes_CreateFinish(RegionUserNumber,Err)  
-  !define elements for the mesh
-  CALL CMISSMeshElements_CreateStart(RegionUserNumber,MeshUserNumber,MeshComponentNumber,BasisUserNumber,Err)
-  Do elem_idx=1,MeshNumberOfElements
-    CALL CMISSMeshElements_NodesSet(RegionUserNumber,MeshUserNumber,MeshComponentNumber,elem_idx,ElementUserNodes(elem_idx,:),Err)
-  ENDDO
-  CALL CMISSMeshElements_CreateFinish(RegionUserNumber,MeshUserNumber,MeshComponentNumber,Err)
-  CALL CMISSMesh_CreateFinish(RegionUserNumber,MeshUserNumber,Err)
-  !=========================================================================================================================
-  !Create a mesh decomposition 
-  CALL CMISSDecomposition_CreateStart(DecompositionUserNumber,RegionUserNumber,MeshUserNumber,Err)
-  CALL CMISSDecomposition_TypeSet(RegionUserNumber,MeshUserNumber,DecompositionUserNumber,CMISS_DECOMPOSITION_CALCULATED_TYPE,Err)
-  CALL CMISSDecomposition_NumberOfDomainsSet(RegionUserNumber,MeshUserNumber,DecompositionUserNumber,NumberOfDomains,Err)
-  CALL CMISSDecomposition_CreateFinish(RegionUserNumber,MeshUserNumber,DecompositionUserNumber,Err)
-  
-  !=========================================================================================================================
-  !Create a field to put the geometry
-  CALL CMISSField_CreateStart(FieldUserNumber,RegionUserNumber,Err)
-  CALL CMISSField_MeshDecompositionSet(RegionUserNumber,FieldUserNumber,MeshUserNumber,DecompositionUserNumber,Err)
-  CALL CMISSField_TypeSet(RegionUserNumber,FieldUserNumber,CMISS_FIELD_GEOMETRIC_TYPE,Err)
-  CALL CMISSField_NumberOfVariablesSet(RegionUserNumber,FieldUserNumber,FieldNumberOfVariables,Err)
-  CALL CMISSField_NumberOfComponentsSet(RegionUserNumber,FieldUserNumber,CMISS_FIELD_U_VARIABLE_TYPE,FieldNumberOfComponents,Err)
-  CALL CMISSField_ComponentMeshComponentSet(RegionUserNumber,FieldUserNumber,CMISS_FIELD_U_VARIABLE_TYPE,1,1,Err)
-!  DO xi=1,NumberOfXi
-    
-!  ENDDO !xi    
-  CALL CMISSField_CreateFinish(RegionUserNumber,FieldUserNumber,Err)
-  !node 1
-  ver_idx=1 ! version number
-  DO der_idx=1,SIZE(FieldValues,1)
-    DO node_idx=1,SIZE(FieldValues,2)
-      DO comp_idx=1,SIZE(FieldValues,3)
-        CALL CMISSField_ParameterSetUpdateNode(RegionUserNumber,FieldUserNumber,CMISS_FIELD_U_VARIABLE_TYPE, &
-          & CMISS_FIELD_VALUES_SET_TYPE, &
-          & ver_idx,der_idx,node_idx,comp_idx,FieldValues(der_idx,node_idx,comp_idx),Err)
-      ENDDO
-    ENDDO
-  ENDDO
-  
-  !=========================================================================================================================
-  !Create a data projection
-  CALL CMISSDataProjection_CreateStart(RegionUserNumber,FieldUserNumber,RegionUserNumber,Err)
-  CALL CMISSDataProjection_ProjectionTypeSet(RegionUserNumber,CMISS_DATA_PROJECTION_ALL_ELEMENTS_PROJECTION_TYPE,Err) !Set to element projection for data points embedding. The default is boundary/surface projection.
-  CALL CMISSDataProjection_CreateFinish(RegionUserNumber,Err)
-  
-  !=========================================================================================================================
-  !Start data projection
-  CALL CMISSDataProjection_Evaluate(RegionUserNumber,Err)
+  CALL CMISSErrorHandlingModeSet(CMISS_ERRORS_TRAP_ERROR,Err)
 
-  !Retrieve projection results
-  DO data_point_idx=1,NumberOfDataPoints
-    CALL CMISSDataPoints_ProjectionDistanceGet(RegionUserNumber,data_point_idx,DataPointProjectionDistance(data_point_idx),Err)
-    CALL CMISSDataPoints_ProjectionElementNumberGet(RegionUserNumber,data_point_idx,DataPointProjectionElementNumber( &
-      & data_point_idx),Err)
-    CALL CMISSDataPoints_ProjectionExitTagGet(RegionUserNumber,data_point_idx,DataPointProjectionExitTag(data_point_idx),Err)
-    CALL CMISSDataPoints_ProjectionXiGet(RegionUserNumber,data_point_idx,DataPointProjectionXi(data_point_idx,:),Err)
-  ENDDO  
+  CALL CMISSRandomSeedsSet(9999,Err)
   
-  !=========================================================================================================================
-  !Destroy used types
-  CALL CMISSDataProjection_Destroy(RegionUserNumber,Err)
-  CALL CMISSDataPoints_Destroy(RegionUserNumber,Err)
+  CALL CMISSDiagnosticsSetOn(CMISS_IN_DIAG_TYPE,[1,2,3,4,5],"Diagnostics",["DOMAIN_MAPPINGS_LOCAL_FROM_GLOBAL_CALCULATE"],Err)
+
+  WRITE(Filename,'(A,"_",I0,"x",I0,"x",I0,"_",I0)') "Laplace",NUMBER_GLOBAL_X_ELEMENTS,NUMBER_GLOBAL_Y_ELEMENTS, &
+    & NUMBER_GLOBAL_Z_ELEMENTS,INTERPOLATION_TYPE
+  
+  CALL CMISSOutputSetOn(Filename,Err)
+
+  !Get the computational nodes information
+  CALL CMISSComputationalNumberOfNodesGet(NumberOfComputationalNodes,Err)
+  CALL CMISSComputationalNodeNumberGet(ComputationalNodeNumber,Err)
     
-  CALL CMISSRegion_Destroy(RegionUserNumber,Err)
-  CALL CMISSCoordinateSystem_Destroy(CoordinateSystemUserNumber,Err)  
-  
-  !=========================================================================================================================
-  !Finishing program
+  !Start the creation of a new RC coordinate system
+  CALL CMISSCoordinateSystem_Initialise(CoordinateSystem,Err)
+  CALL CMISSCoordinateSystem_CreateStart(CoordinateSystemUserNumber,CoordinateSystem,Err)
+  IF(NUMBER_GLOBAL_Z_ELEMENTS==0) THEN
+    !Set the coordinate system to be 2D
+    CALL CMISSCoordinateSystem_DimensionSet(CoordinateSystem,2,Err)
+  ELSE
+    !Set the coordinate system to be 3D
+    CALL CMISSCoordinateSystem_DimensionSet(CoordinateSystem,3,Err)
+  ENDIF
+  !Finish the creation of the coordinate system
+  CALL CMISSCoordinateSystem_CreateFinish(CoordinateSystem,Err)
+
+  !Start the creation of the region
+  CALL CMISSRegion_Initialise(Region,Err)
+  CALL CMISSRegion_CreateStart(RegionUserNumber,WorldRegion,Region,Err)
+  CALL CMISSRegion_LabelSet(Region,"LaplaceRegion",Err)
+  !Set the regions coordinate system to the 2D RC coordinate system that we have created
+  CALL CMISSRegion_CoordinateSystemSet(Region,CoordinateSystem,Err)
+  !Finish the creation of the region
+  CALL CMISSRegion_CreateFinish(Region,Err)
+
+  !Start the creation of a basis (default is trilinear lagrange)
+  CALL CMISSBasis_Initialise(Basis,Err)
+  CALL CMISSBasis_CreateStart(BasisUserNumber,Basis,Err)
+  SELECT CASE(INTERPOLATION_TYPE)
+  CASE(1,2,3,4)
+    CALL CMISSBasis_TypeSet(Basis,CMISS_BASIS_LAGRANGE_HERMITE_TP_TYPE,Err)
+  CASE(7,8,9)
+    CALL CMISSBasis_TypeSet(Basis,CMISS_BASIS_SIMPLEX_TYPE,Err)
+  CASE DEFAULT
+    CALL HANDLE_ERROR("Invalid interpolation type.")
+  END SELECT
+  SELECT CASE(INTERPOLATION_TYPE)
+  CASE(1)
+    NUMBER_OF_GAUSS_XI=2
+  CASE(2)
+    NUMBER_OF_GAUSS_XI=3
+  CASE(3,4)
+    NUMBER_OF_GAUSS_XI=4
+  CASE DEFAULT
+    NUMBER_OF_GAUSS_XI=0 !Don't set number of Gauss points for tri/tet
+  END SELECT
+  IF(NUMBER_GLOBAL_Z_ELEMENTS==0) THEN
+    !Set the basis to be a bi-interpolation basis
+    CALL CMISSBasis_NumberOfXiSet(Basis,2,Err)
+    CALL CMISSBasis_InterpolationXiSet(Basis,[INTERPOLATION_TYPE,INTERPOLATION_TYPE],Err)
+    IF(NUMBER_OF_GAUSS_XI>0) THEN
+      CALL CMISSBasis_QuadratureNumberOfGaussXiSet(Basis,[NUMBER_OF_GAUSS_XI,NUMBER_OF_GAUSS_XI],Err)
+    ENDIF
+  ELSE
+    !Set the basis to be a tri-interpolation basis
+    CALL CMISSBasis_NumberOfXiSet(Basis,3,Err)
+    CALL CMISSBasis_InterpolationXiSet(Basis,[INTERPOLATION_TYPE,INTERPOLATION_TYPE,INTERPOLATION_TYPE],Err)
+    IF(NUMBER_OF_GAUSS_XI>0) THEN
+      CALL CMISSBasis_QuadratureNumberOfGaussXiSet(Basis,[NUMBER_OF_GAUSS_XI,NUMBER_OF_GAUSS_XI,NUMBER_OF_GAUSS_XI],Err)
+    ENDIF
+  ENDIF
+  !Finish the creation of the basis
+  CALL CMISSBasis_CreateFinish(Basis,Err)
+   
+  !Start the creation of a generated mesh in the region
+  CALL CMISSGeneratedMesh_Initialise(GeneratedMesh,Err)
+  CALL CMISSGeneratedMesh_CreateStart(GeneratedMeshUserNumber,Region,GeneratedMesh,Err)
+  !Set up a regular x*y*z mesh
+  CALL CMISSGeneratedMesh_TypeSet(GeneratedMesh,CMISS_GENERATED_MESH_REGULAR_MESH_TYPE,Err)
+  !Set the default basis
+  CALL CMISSGeneratedMesh_BasisSet(GeneratedMesh,Basis,Err)   
+  !Define the mesh on the region
+  IF(NUMBER_GLOBAL_Z_ELEMENTS==0) THEN
+    CALL CMISSGeneratedMesh_ExtentSet(GeneratedMesh,[WIDTH,HEIGHT],Err)
+    CALL CMISSGeneratedMesh_NumberOfElementsSet(GeneratedMesh,[NUMBER_GLOBAL_X_ELEMENTS,NUMBER_GLOBAL_Y_ELEMENTS],Err)
+  ELSE
+    CALL CMISSGeneratedMesh_ExtentSet(GeneratedMesh,[WIDTH,HEIGHT,LENGTH],Err)
+    CALL CMISSGeneratedMesh_NumberOfElementsSet(GeneratedMesh,[NUMBER_GLOBAL_X_ELEMENTS,NUMBER_GLOBAL_Y_ELEMENTS, &
+      & NUMBER_GLOBAL_Z_ELEMENTS],Err)
+  ENDIF    
+  !Finish the creation of a generated mesh in the region
+  CALL CMISSMesh_Initialise(Mesh,Err)
+  CALL CMISSGeneratedMesh_CreateFinish(GeneratedMesh,MeshUserNumber,Mesh,Err)
+
+  !Create a decomposition
+  CALL CMISSDecomposition_Initialise(Decomposition,Err)
+  CALL CMISSDecomposition_CreateStart(DecompositionUserNumber,Mesh,Decomposition,Err)
+  !Set the decomposition to be a general decomposition with the specified number of domains
+  CALL CMISSDecomposition_TypeSet(Decomposition,CMISS_DECOMPOSITION_CALCULATED_TYPE,Err)
+  CALL CMISSDecomposition_NumberOfDomainsSet(Decomposition,NumberOfComputationalNodes,Err)
+  !Finish the decomposition
+  CALL CMISSDecomposition_CreateFinish(Decomposition,Err)
+ 
+  !Destory the mesh now that we have decomposed it
+  !CALL CMISSMesh_Destroy(Mesh,Err)
+ 
+  !Start to create a default (geometric) field on the region
+  CALL CMISSField_Initialise(GeometricField,Err)
+  CALL CMISSField_CreateStart(GeometricFieldUserNumber,Region,GeometricField,Err)
+  !Set the decomposition to use
+  CALL CMISSField_MeshDecompositionSet(GeometricField,Decomposition,Err)
+  !Set the domain to be used by the field components.
+  CALL CMISSField_ComponentMeshComponentSet(GeometricField,CMISS_FIELD_U_VARIABLE_TYPE,1,1,Err)
+  CALL CMISSField_ComponentMeshComponentSet(GeometricField,CMISS_FIELD_U_VARIABLE_TYPE,2,1,Err)
+  IF(NUMBER_GLOBAL_Z_ELEMENTS/=0) THEN
+    CALL CMISSField_ComponentMeshComponentSet(GeometricField,CMISS_FIELD_U_VARIABLE_TYPE,3,1,Err)
+  ENDIF
+  !Finish creating the field
+  CALL CMISSField_CreateFinish(GeometricField,Err)
+
+  !Update the geometric field parameters
+  CALL CMISSGeneratedMesh_GeometricParametersCalculate(GeneratedMesh,GeometricField,Err)
+
+  CALL CMISSDataPoints_Initialise(DataPoints,Err)
+  numberOfDataPoints = 1
+  CALL CMISSDataPoints_CreateStart(region,numberOfDataPoints,DataPoints,Err)
+  dataPointGlobalNumber = 1
+  CALL CMISSDataPoints_ValuesSet(DataPoints,dataPointGlobalNumber,[0.5_CMISSDP,0.5_CMISSDP,0.5_CMISSDP],Err)
+  CALL CMISSDataPoints_CreateFinish(DataPoints,Err)
+
+  CALL CMISSDataProjection_Initialise(DataProjection,Err)
+  CALL CMISSDataProjection_CreateStart(DataProjectionUserNumber,DataPoints,Mesh,DataProjection,Err)
+  ! Set to element projection for data points embedding. The default is boundary surface projection.
+  CALL CMISSDataProjection_ProjectionTypeSet(DataProjection,CMISS_DATA_PROJECTION_ALL_ELEMENTS_PROJECTION_TYPE,Err)
+  CALL CMISSDataProjection_CreateFinish(DataProjection,Err)
+
+  CALL CMISSDataProjection_ProjectionEvaluate(DataProjection,GeometricField,Err)
+
+  ! Retrieve projection results
+  CALL CMISSDataPoints_ProjectionDistanceGet(DataPoints,dataPointGlobalNumber,dataPointProjectionDistance,Err)
+
+  !Finialise CMISS
   CALL CMISSFinalise(Err)
+
   WRITE(*,'(A)') "Program successfully completed."
-  STOP  
   
-END PROGRAM DataProjection1DRectangularCartesian
+  STOP
   
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+CONTAINS
+
+  SUBROUTINE HANDLE_ERROR(ERROR_STRING)
+
+    CHARACTER(LEN=*), INTENT(IN) :: ERROR_STRING
+
+    WRITE(*,'(">>ERROR: ",A)') ERROR_STRING(1:LEN_TRIM(ERROR_STRING))
+    STOP
+
+  END SUBROUTINE HANDLE_ERROR
+    
+END PROGRAM DataProjection3DRectangularCartesian
+
