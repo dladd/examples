@@ -104,11 +104,12 @@ kappa = 0.0005
 numberGlobalXElements = 5
 numberGlobalYElements = 5
 numberGlobalZElements = 5
+numberOfElements = numberGlobalXElements*numberGlobalYElements*numberGlobalZElements
 
 # Set data point resolution
-numberGlobalXDataPoints = 3
-numberGlobalYDataPoints = 3
-numberGlobalZDataPoints = 3
+numberGlobalXDataPoints = 15
+numberGlobalYDataPoints = 15
+numberGlobalZDataPoints = 15
 
 CMISS.DiagnosticsSetOn(CMISS.DiagnosticTypes.IN,[1,2,3,4,5],"Diagnostics",["DOMAIN_MAPPINGS_LOCAL_FROM_GLOBAL_CALCULATE"])
 
@@ -236,7 +237,7 @@ equationsSet = CMISS.EquationsSet()
 equationsSet.CreateStart(equationsSetUserNumber,region,geometricField,
         CMISS.EquationsSetClasses.FITTING,
         CMISS.EquationsSetTypes.DATA_FITTING_EQUATION,
-        CMISS.EquationsSetSubtypes.DATA_POINT_VECTOR_DATA_FITTING,
+        CMISS.EquationsSetSubtypes.DATA_POINT_VECTOR_STATIC_FITTING,
         equationsSetFieldUserNumber, equationsSetField)
 equationsSet.CreateFinish()
 
@@ -260,11 +261,14 @@ dependentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.Fiel
 # Create data point field (independent field, with vector values stored at the data points)
 independentField = CMISS.Field()
 equationsSet.IndependentCreateStart(independentFieldUserNumber,independentField)
-independentField.VariableLabelSet(CMISS.FieldVariableTypes.U,"Independent")
+independentField.VariableLabelSet(CMISS.FieldVariableTypes.U,"data point vector")
+independentField.VariableLabelSet(CMISS.FieldVariableTypes.V,"data point weight")
 independentField.DataProjectionSet(dataProjection)
 equationsSet.IndependentCreateFinish()
-# Initialise dataPoint field
+# Initialise data point vector field to 0
 independentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,1,0.0)
+# Initialise data point weight field to 1
+independentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,1,1.0)
 
 # set data point field values
 for dataPoint in range(numberDataPoints):
@@ -276,6 +280,18 @@ for dataPoint in range(numberDataPoints):
             componentId = component + 1
             value = dataPointLocations[dataPoint,component]
             independentField.ParameterSetUpdateDataPointDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,dataPointId,componentId,value)
+
+# set data point weights as inverse squared distance
+componentId=1
+minDistance=0.0001 
+for dataPoint in range(numberDataPoints):
+    dataPointId = dataPoint + 1
+    projectedElementNumber = dataProjection.ElementGet(dataPointId)
+    elementDomain = decomposition.ElementDomainGet(projectedElementNumber)
+    if (elementDomain == computationalNodeNumber):
+        distance = dataProjection.DistanceGet(dataPointId)
+        value = 1/(distance+minDistance)**2
+        independentField.ParameterSetUpdateDataPointDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,dataPointId,componentId,value)
 
 #=================================================================
 # Material Field
@@ -311,7 +327,7 @@ problem = CMISS.Problem()
 problem.CreateStart(problemUserNumber)
 problem.SpecificationSet(CMISS.ProblemClasses.FITTING,
         CMISS.ProblemTypes.DATA_FITTING,
-        CMISS.ProblemSubTypes.DATA_POINT_VECTOR_DATA_FITTING)
+        CMISS.ProblemSubTypes.DATA_POINT_VECTOR_STATIC_FITTING)
 problem.CreateFinish()
 
 # Create control loops
@@ -358,7 +374,7 @@ problem.Solve()
 #=================================================================
 # Export results
 #=================================================================
-exportFieldml = True
+exportFieldml = False
 
 if (exportFieldml):
     # Export geometric field (fieldML)
