@@ -90,8 +90,6 @@ PROGRAM Coupled1DCellMLExample
   INTEGER(CMISSIntg), PARAMETER :: MaterialsFieldUserNumberCellML=18
 
   INTEGER(CMISSIntg), PARAMETER :: DomainUserNumber=1
-  INTEGER(CMISSIntg), PARAMETER :: SolverCharacteristicUserNumber=1
-  INTEGER(CMISSIntg), PARAMETER :: SolverNavierStokesUserNumber=2
   INTEGER(CMISSIntg), PARAMETER :: MaterialsFieldUserNumberMu=1
   INTEGER(CMISSIntg), PARAMETER :: MaterialsFieldUserNumberRho=2
   INTEGER(CMISSIntg), PARAMETER :: MaterialsFieldUserNumberK=3
@@ -170,6 +168,7 @@ PROGRAM Coupled1DCellMLExample
   REAL(CMISSDP) :: DYNAMIC_SOLVER_NAVIER_STOKES_TIME_INCREMENT
 
   INTEGER(CMISSIntg) :: pCellMLComponent,pPreviousComponent,pVesselWallComponent,pExternalComponent,qPreviousComponent
+  INTEGER(CMISSIntg) :: modelIndex,numberOfCellmlModels
   INTEGER(CMISSIntg) :: EquationsSetSubtype
   INTEGER(CMISSIntg) :: EquationsSetCharacteristicSubtype
   INTEGER(CMISSIntg) :: ProblemSubtype
@@ -180,7 +179,11 @@ PROGRAM Coupled1DCellMLExample
   LOGICAL :: LINEAR_SOLVER_NAVIER_STOKES_DIRECT_FLAG
   LOGICAL :: OUTLET_WALL_NODES_NAVIER_STOKES_FLAG
   LOGICAL :: INLET_WALL_NODES_NAVIER_STOKES_FLAG
-  LOGICAL :: cellmlFlag,versionsFlag,windkesselFlag
+  LOGICAL :: cellmlFlag,versionsFlag,windkesselFlag,mixedFlag
+
+  INTEGER(CMISSIntg) :: SolverDaeUserNumber
+  INTEGER(CMISSIntg) :: SolverCharacteristicUserNumber
+  INTEGER(CMISSIntg) :: SolverNavierStokesUserNumber
 
   !CMISS variables
 
@@ -250,7 +253,7 @@ PROGRAM Coupled1DCellMLExample
   !Generic CMISS variables
   INTEGER(CMISSIntg) :: NumberOfComputationalNodes,ComputationalNodeNumber,BoundaryNodeDomain
   INTEGER(CMISSIntg) :: CellMLIndex
-  INTEGER(CMISSIntg) :: ResistanceModelIndex
+  INTEGER(CMISSIntg) :: CellMLModelIndex,CellMLModelIndex1,CellMLModelIndex2
   INTEGER(CMISSIntg) :: WindkesselModelIndex
   INTEGER(CMISSIntg) :: EquationsSetIndex
   INTEGER(CMISSIntg) :: Err
@@ -285,7 +288,8 @@ PROGRAM Coupled1DCellMLExample
   !================================================================================================================================
 
   cellmlFlag = .TRUE.
-  windkesselFlag = .FALSE.
+  windkesselFlag = .TRUE.
+  mixedFlag = .TRUE.
   versionsFlag = .FALSE.
   numberOfCoordinateDimensions=2
 !  resistanceProximal=9.2119E+11_CMISSDP
@@ -415,8 +419,8 @@ PROGRAM Coupled1DCellMLExample
   !Set time parameter
   DYNAMIC_SOLVER_NAVIER_STOKES_START_TIME=0.0_CMISSDP
 !  DYNAMIC_SOLVER_NAVIER_STOKES_STOP_TIME=10.00001_CMISSDP
-  DYNAMIC_SOLVER_NAVIER_STOKES_STOP_TIME=10.001_CMISSDP
-  DYNAMIC_SOLVER_NAVIER_STOKES_TIME_INCREMENT=0.01_CMISSDP
+  DYNAMIC_SOLVER_NAVIER_STOKES_STOP_TIME=1.001_CMISSDP
+  DYNAMIC_SOLVER_NAVIER_STOKES_TIME_INCREMENT=0.001_CMISSDP
   DYNAMIC_SOLVER_NAVIER_STOKES_THETA=1.0_CMISSDP/2.0_CMISSDP
   !Set result output parameter
   DYNAMIC_SOLVER_NAVIER_STOKES_OUTPUT_FREQUENCY=1
@@ -434,8 +438,18 @@ PROGRAM Coupled1DCellMLExample
     EquationsSetSubtype=CMISS_EQUATIONS_SET_Coupled1D0D_NAVIER_STOKES_SUBTYPE 
     ! Characteristic (nodal/characteristic) solver remains the same
     EquationsSetCharacteristicSubtype=CMISS_EQUATIONS_SET_Coupled1D0D_CHARACTERISTIC_SUBTYPE
-    ! New problem type to execute the 1D-0D coupling subloop at each timestep
-    ProblemSubtype=CMISS_PROBLEM_Coupled1D0D_NAVIER_STOKES_SUBTYPE
+    IF(windkesselFlag) THEN
+      SolverDAEUserNumber=1
+      SolverCharacteristicUserNumber=2
+      SolverNavierStokesUserNumber=3
+      ProblemSubtype=CMISS_PROBLEM_Coupled1dDae_NAVIER_STOKES_SUBTYPE
+    ELSE
+      SolverDAEUserNumber=0
+      SolverCharacteristicUserNumber=1
+      SolverNavierStokesUserNumber=2
+      ! New problem type to execute the 1D-0D coupling subloop at each timestep
+      ProblemSubtype=CMISS_PROBLEM_Coupled1D0D_NAVIER_STOKES_SUBTYPE
+    ENDIF
   ELSE
     EquationsSetSubtype=CMISS_EQUATIONS_SET_1DTRANSIENT_NAVIER_STOKES_SUBTYPE
     EquationsSetCharacteristicSubtype=CMISS_EQUATIONS_SET_STATIC_CHARACTERISTIC_SUBTYPE
@@ -1091,145 +1105,106 @@ PROGRAM Coupled1DCellMLExample
     ! new value for Q until the values for Q and P converge within tolerance of the previous value.
     !------------------------------------------------------------------------------------------------------------------------------
 
-     pCellMLComponent=1
+    pCellMLComponent=1
 
-     ! --- W i n d k e s s e l   M o d e l --- !
-     IF (windkesselFlag) THEN
+    !Create the CellML environment
+    CALL CMISSCellML_Initialise(CellML,Err)
+    CALL CMISSCellML_CreateStart(CellMLUserNumber,Region,CellML,Err)
 
-      !Create the CellML environment
-      CALL CMISSCellML_Initialise(CellML,Err)
-      CALL CMISSCellML_CreateStart(CellMLUserNumber,Region,CellML,Err)
+    ! --- W i n d k e s s e l   M o d e l --- !
+    IF(windkesselFlag) THEN
+      IF(mixedFlag) THEN
+        CALL CMISSCellML_ModelImport(CellML,"./CellMLModels/Windkessel/WindkesselMain.cellml",CellMLModelIndex1,Err)
+        CALL CMISSCellML_ModelImport(CellML,"./CellMLModels/WResistance/WindkesselMain.cellml",CellMLModelIndex2,Err)
+        numberOfCellmlModels = 2
+      ELSE
+        CALL CMISSCellML_ModelImport(CellML,"./CellMLModels/Windkessel/WindkesselMain.cellml",CellMLModelIndex,Err)
+        numberOfCellmlModels = 1
+      ENDIF
+    ! --- R e s i s t a n c e   M o d e l --- !
+    ELSE
+      CALL CMISSCellML_ModelImport(CellML,"./CellMLModels/Resistance/resistance.xml",CellMLModelIndex,Err)
+      numberOfCellmlModels = 1
+    ENDIF
 
-      !Import an RCR windkessel model
-      CALL CMISSCellML_ModelImport(CellML,"windkessel.xml",WindkesselModelIndex,Err)    
-
+    DO modelIndex=1,numberOfCellMLModels
+      IF(mixedFlag) THEN
+        IF(modelIndex == 1) THEN
+          CellMLModelIndex = CellMLModelIndex1
+        ELSE IF(modelIndex == 2) THEN
+          CellMLModelIndex = CellMLModelIndex2
+        ENDIF
+      ENDIF
       ! - known (to OpenCMISS) variables 
-      CALL CMISSCellML_VariableSetAsKnown(CellML,WindkesselModelIndex,"equations/Q",Err)
-      CALL CMISSCellML_VariableSetAsKnown(CellML,WindkesselModelIndex,"equations/R_p",Err)
-      CALL CMISSCellML_VariableSetAsKnown(CellML,WindkesselModelIndex,"equations/R_d",Err)
-      CALL CMISSCellML_VariableSetAsKnown(CellML,WindkesselModelIndex,"equations/C",Err)
-      CALL CMISSCellML_VariableSetAsKnown(CellML,WindkesselModelIndex,"equations/t",Err)
+      CALL CMISSCellML_VariableSetAsKnown(CellML,CellMLModelIndex,"interface/FlowRate",Err)
       ! - to get from the CellML side 
-      CALL CMISSCellML_VariableSetAsWanted(CellML,WindkesselModelIndex,"equations/P",Err)
+      CALL CMISSCellML_VariableSetAsWanted(CellML,CellMLModelIndex,"interface/Pressure",Err)
+    ENDDO ! modelIndex
 
-      CALL CMISSCellML_CreateFinish(CellML,Err)
+    CALL CMISSCellML_CreateFinish(CellML,Err)
+    !Start the creation of CellML <--> OpenCMISS field maps
+    CALL CMISSCellML_FieldMapsCreateStart(CellML,Err)
 
-      !Start the creation of CellML <--> OpenCMISS field maps
-      CALL CMISSCellML_FieldMapsCreateStart(CellML,Err)
+    DO modelIndex=1,numberOfCellMLModels
+      IF(mixedFlag) THEN
+        IF(modelIndex == 1) THEN
+          CellMLModelIndex = CellMLModelIndex1
+        ELSE IF(modelIndex == 2) THEN
+          CellMLModelIndex = CellMLModelIndex2
+        ENDIF
+      ENDIF
       !Now we can set up the field variable component <--> CellML model variable mappings.
-
       !Map the OpenCMISS boundary flow rate values --> CellML
       ! Q is component 1 of the DependentField
       CALL CMISSCellML_CreateFieldToCellMLMap(CellML,DependentFieldNavierStokes,CMISS_FIELD_U_VARIABLE_TYPE,1, &
-        & CMISS_FIELD_VALUES_SET_TYPE,WindkesselModelIndex,"equations/Q",CMISS_FIELD_VALUES_SET_TYPE,Err)
-      CALL CMISSCellML_CreateFieldToCellMLMap(CellML,DependentFieldNavierStokes,CMISS_FIELD_U_VARIABLE_TYPE,1, &
-        & CMISS_FIELD_VALUES_SET_TYPE,WindkesselModelIndex,"equations/t",CMISS_FIELD_VALUES_SET_TYPE,Err)
-      !Map the returned pressure values from CellML --> CMISS
-      ! pCellML is component 1 of the Dependent field U1 variable
-      CALL CMISSCellML_CreateCellMLToFieldMap(CellML,WindkesselModelIndex,"equations/Pressure",CMISS_FIELD_VALUES_SET_TYPE, &
-        & DependentFieldNavierStokes,CMISS_FIELD_U1_VARIABLE_TYPE,pCellMLComponent,CMISS_FIELD_VALUES_SET_TYPE,Err)
-
-      !Finish the creation of CellML <--> OpenCMISS field maps
-      CALL CMISSCellML_FieldMapsCreateFinish(CellML,Err)
-
-      !Create the CellML models field --- only 1 model here
-      CALL CMISSField_Initialise(CellMLModelsField,Err)
-      CALL CMISSCellML_ModelsFieldCreateStart(CellML,CellMLModelsFieldUserNumber,CellMLModelsField,Err)
-      CALL CMISSCellML_ModelsFieldCreateFinish(CellML,Err)
-
-      !Create the CellML parameters field --- will be the Resistance and Flow rate
-      CALL CMISSField_Initialise(CellMLParametersField,Err)
-      CALL CMISSCellML_ParametersFieldCreateStart(CellML,CellMLParametersFieldUserNumber,CellMLParametersField,Err)
-      CALL CMISSCellML_ParametersFieldCreateFinish(CellML,Err)
-
-      !Create the CellML intermediate field --- will be the pressure value returned from CellML to be used for 
-      ! recalculation of the incoming Riemann variable W(2)
-      CALL CMISSField_Initialise(CellMLIntermediateField,Err)
-      CALL CMISSCellML_IntermediateFieldCreateStart(CellML,CellMLIntermediateFieldUserNumber,CellMLIntermediateField,Err)
-      CALL CMISSCellML_IntermediateFieldCreateFinish(CellML,Err)
-
-      ! Initialise pCellML (and previous pCellML coupling iteration values) values to 0 at the outlet nodes
-      pCellML=0.0_CMISSDP
-      pPrevious=0.0_CMISSDP
-      !(field,variableType,fieldSetType,versionNumber,derivativeNumber,userNodeNumber,componentNumber,value,err)
-      CALL CMISSField_ParameterSetUpdateNode(DependentFieldNavierStokes,CMISS_FIELD_U1_VARIABLE_TYPE, &
-       & CMISS_FIELD_VALUES_SET_TYPE,1,CMISS_NO_GLOBAL_DERIV,coupledNodeNumber1,pCellMLComponent,pCellML,err)
-      CALL CMISSField_ParameterSetUpdateNode(DependentFieldNavierStokes,CMISS_FIELD_U1_VARIABLE_TYPE, &
-       & CMISS_FIELD_VALUES_SET_TYPE,1,CMISS_NO_GLOBAL_DERIV,coupledNodeNumber2,pCellMLComponent,pCellML,err)
-      CALL CMISSField_ParameterSetCreate(DependentFieldNavierStokes,CMISS_FIELD_U1_VARIABLE_TYPE, &
-       & CMISS_FIELD_PREVIOUS_VALUES_SET_TYPE,err)
-      CALL CMISSField_ParameterSetUpdateNode(DependentFieldNavierStokes,CMISS_FIELD_U1_VARIABLE_TYPE, &
-       & CMISS_FIELD_PREVIOUS_VALUES_SET_TYPE,1,CMISS_NO_GLOBAL_DERIV,coupledNodeNumber1,pCellMLComponent,pPrevious,err)
-      CALL CMISSField_ParameterSetUpdateNode(DependentFieldNavierStokes,CMISS_FIELD_U1_VARIABLE_TYPE, &
-       & CMISS_FIELD_PREVIOUS_VALUES_SET_TYPE,1,CMISS_NO_GLOBAL_DERIV,coupledNodeNumber2,pCellMLComponent,pPrevious,err)
-
-
-     ! --- R e s i s t a n c e   M o d e l --- !
-     ELSE 
-
-      !Create the CellML environment
-      CALL CMISSCellML_Initialise(CellML,Err)
-      CALL CMISSCellML_CreateStart(CellMLUserNumber,Region,CellML,Err)
-
-      !Import a simple resistance model P = RQ, analogous to V = IR
-      CALL CMISSCellML_ModelImport(CellML,"resistance.xml",ResistanceModelIndex,Err)
-
-      ! - known (to OpenCMISS) variables 
-      CALL CMISSCellML_VariableSetAsKnown(CellML,ResistanceModelIndex,"equations/FlowRate",Err)
-      CALL CMISSCellML_VariableSetAsKnown(CellML,ResistanceModelIndex,"equations/Resistance",Err)
-      ! - to get from the CellML side 
-      CALL CMISSCellML_VariableSetAsWanted(CellML,ResistanceModelIndex,"equations/Pressure",Err)
-
-      CALL CMISSCellML_CreateFinish(CellML,Err)
-
-      !Start the creation of CellML <--> OpenCMISS field maps
-      CALL CMISSCellML_FieldMapsCreateStart(CellML,Err)
-      !Now we can set up the field variable component <--> CellML model variable mappings.
-
-      !Map the OpenCMISS boundary flow rate values --> CellML
-      ! Q is component 1 of the DependentField
-      CALL CMISSCellML_CreateFieldToCellMLMap(CellML,DependentFieldNavierStokes,CMISS_FIELD_U_VARIABLE_TYPE,1, &
-        & CMISS_FIELD_VALUES_SET_TYPE,ResistanceModelIndex,"equations/FlowRate",CMISS_FIELD_VALUES_SET_TYPE,Err)
+        & CMISS_FIELD_VALUES_SET_TYPE,CellMLModelIndex,"interface/FlowRate",CMISS_FIELD_VALUES_SET_TYPE,Err)
       !Map the returned pressure values from CellML --> CMISS
       ! pCellML is component 2 of the Dependent field V variable
-      CALL CMISSCellML_CreateCellMLToFieldMap(CellML,ResistanceModelIndex,"equations/Pressure",CMISS_FIELD_VALUES_SET_TYPE, &
+      CALL CMISSCellML_CreateCellMLToFieldMap(CellML,CellMLModelIndex,"interface/Pressure",CMISS_FIELD_VALUES_SET_TYPE, &
         & DependentFieldNavierStokes,CMISS_FIELD_U1_VARIABLE_TYPE,pCellMLComponent,CMISS_FIELD_VALUES_SET_TYPE,Err)
+    ENDDO ! modelIndex
 
-      !Finish the creation of CellML <--> OpenCMISS field maps
-      CALL CMISSCellML_FieldMapsCreateFinish(CellML,Err)
+    !Finish the creation of CellML <--> OpenCMISS field maps
+    CALL CMISSCellML_FieldMapsCreateFinish(CellML,Err)
 
-      !Create the CellML models field --- only 1 model here
-      CALL CMISSField_Initialise(CellMLModelsField,Err)
-      CALL CMISSCellML_ModelsFieldCreateStart(CellML,CellMLModelsFieldUserNumber,CellMLModelsField,Err)
-      CALL CMISSCellML_ModelsFieldCreateFinish(CellML,Err)
+    !Create the CellML models field --- only 1 model here
+    CALL CMISSField_Initialise(CellMLModelsField,Err)
+    CALL CMISSCellML_ModelsFieldCreateStart(CellML,CellMLModelsFieldUserNumber,CellMLModelsField,Err)
+    CALL CMISSCellML_ModelsFieldCreateFinish(CellML,Err)
 
-      !Create the CellML parameters field --- will be the Resistance and Flow rate
-      CALL CMISSField_Initialise(CellMLParametersField,Err)
-      CALL CMISSCellML_ParametersFieldCreateStart(CellML,CellMLParametersFieldUserNumber,CellMLParametersField,Err)
-      CALL CMISSCellML_ParametersFieldCreateFinish(CellML,Err)
+    IF (windkesselFlag) THEN 
+      !Start the creation of the CellML state field
+      CALL CMISSField_Initialise(CellMLStateField,Err)
+      CALL CMISSCellML_StateFieldCreateStart(CellML,CellMLStateFieldUserNumber,CellMLStateField,Err)
+      !Finish the creation of the CellML state field
+      CALL CMISSCellML_StateFieldCreateFinish(CellML,Err)
+    ENDIF
 
-      !Create the CellML intermediate field --- will be the pressure value returned from CellML to be used for 
-      ! recalculation of the incoming Riemann variable W(2)
-      CALL CMISSField_Initialise(CellMLIntermediateField,Err)
-      CALL CMISSCellML_IntermediateFieldCreateStart(CellML,CellMLIntermediateFieldUserNumber,CellMLIntermediateField,Err)
-      CALL CMISSCellML_IntermediateFieldCreateFinish(CellML,Err)
+    !Create the CellML parameters field
+    CALL CMISSField_Initialise(CellMLParametersField,Err)
+    CALL CMISSCellML_ParametersFieldCreateStart(CellML,CellMLParametersFieldUserNumber,CellMLParametersField,Err)
+    CALL CMISSCellML_ParametersFieldCreateFinish(CellML,Err)
 
-      ! Initialise pCellML (and previous pCellML coupling iteration values) values to 0 at the outlet nodes
-      pCellML=0.0_CMISSDP
-      pPrevious=0.0_CMISSDP
-      !(field,variableType,fieldSetType,versionNumber,derivativeNumber,userNodeNumber,componentNumber,value,err)
-      CALL CMISSField_ParameterSetUpdateNode(DependentFieldNavierStokes,CMISS_FIELD_U1_VARIABLE_TYPE, &
-       & CMISS_FIELD_VALUES_SET_TYPE,1,CMISS_NO_GLOBAL_DERIV,coupledNodeNumber1,pCellMLComponent,pCellML,err)
-      CALL CMISSField_ParameterSetUpdateNode(DependentFieldNavierStokes,CMISS_FIELD_U1_VARIABLE_TYPE, &
-       & CMISS_FIELD_VALUES_SET_TYPE,1,CMISS_NO_GLOBAL_DERIV,coupledNodeNumber2,pCellMLComponent,pCellML,err)
-      CALL CMISSField_ParameterSetCreate(DependentFieldNavierStokes,CMISS_FIELD_U1_VARIABLE_TYPE, &
-       & CMISS_FIELD_PREVIOUS_VALUES_SET_TYPE,err)
-      CALL CMISSField_ParameterSetUpdateNode(DependentFieldNavierStokes,CMISS_FIELD_U1_VARIABLE_TYPE, &
-       & CMISS_FIELD_PREVIOUS_VALUES_SET_TYPE,1,CMISS_NO_GLOBAL_DERIV,coupledNodeNumber1,pCellMLComponent,pPrevious,err)
-      CALL CMISSField_ParameterSetUpdateNode(DependentFieldNavierStokes,CMISS_FIELD_U1_VARIABLE_TYPE, &
-       & CMISS_FIELD_PREVIOUS_VALUES_SET_TYPE,1,CMISS_NO_GLOBAL_DERIV,coupledNodeNumber2,pCellMLComponent,pPrevious,err)
+    !Create the CellML intermediate field --- will be the pressure value returned from CellML to be used for 
+    ! recalculation of the incoming Riemann variable W(2)
+    CALL CMISSField_Initialise(CellMLIntermediateField,Err)
+    CALL CMISSCellML_IntermediateFieldCreateStart(CellML,CellMLIntermediateFieldUserNumber,CellMLIntermediateField,Err)
+    CALL CMISSCellML_IntermediateFieldCreateFinish(CellML,Err)
 
-    ENDIF ! windkessel/resistance
+    ! Initialise pCellML (and previous pCellML coupling iteration values) values to 0 at the outlet nodes
+    pCellML=0.0_CMISSDP
+    pPrevious=0.0_CMISSDP
+    !(field,variableType,fieldSetType,versionNumber,derivativeNumber,userNodeNumber,componentNumber,value,err)
+    CALL CMISSField_ParameterSetUpdateNode(DependentFieldNavierStokes,CMISS_FIELD_U1_VARIABLE_TYPE, &
+     & CMISS_FIELD_VALUES_SET_TYPE,1,CMISS_NO_GLOBAL_DERIV,coupledNodeNumber1,pCellMLComponent,pCellML,err)
+    CALL CMISSField_ParameterSetUpdateNode(DependentFieldNavierStokes,CMISS_FIELD_U1_VARIABLE_TYPE, &
+     & CMISS_FIELD_VALUES_SET_TYPE,1,CMISS_NO_GLOBAL_DERIV,coupledNodeNumber2,pCellMLComponent,pCellML,err)
+    CALL CMISSField_ParameterSetCreate(DependentFieldNavierStokes,CMISS_FIELD_U1_VARIABLE_TYPE, &
+     & CMISS_FIELD_PREVIOUS_VALUES_SET_TYPE,err)
+    CALL CMISSField_ParameterSetUpdateNode(DependentFieldNavierStokes,CMISS_FIELD_U1_VARIABLE_TYPE, &
+     & CMISS_FIELD_PREVIOUS_VALUES_SET_TYPE,1,CMISS_NO_GLOBAL_DERIV,coupledNodeNumber1,pCellMLComponent,pPrevious,err)
+    CALL CMISSField_ParameterSetUpdateNode(DependentFieldNavierStokes,CMISS_FIELD_U1_VARIABLE_TYPE, &
+     & CMISS_FIELD_PREVIOUS_VALUES_SET_TYPE,1,CMISS_NO_GLOBAL_DERIV,coupledNodeNumber2,pCellMLComponent,pPrevious,err)
  
   ENDIF ! cellml flag
 
@@ -1291,6 +1266,16 @@ PROGRAM Coupled1DCellMLExample
   !Solvers
   !================================================================================================================================
 
+  CALL CMISSProblem_SolversCreateStart(Problem,Err)
+
+  ! CellML DAE solver
+  IF (windkesselFlag) THEN
+    CALL CMISSSolver_Initialise(CellMLSolver,Err)
+    CALL CMISSProblem_SolverGet(Problem,CMISS_CONTROL_LOOP_NODE,SolverDAEUserNumber,CellMLSolver,Err)
+    CALL CMISSSolver_DAETimeStepSet(CellMLSolver,DYNAMIC_SOLVER_NAVIER_STOKES_TIME_INCREMENT,Err)
+    CALL CMISSSolver_OutputTypeSet(CellMLSolver,CMISS_SOLVER_NO_OUTPUT,Err)
+  ENDIF
+
   !Start the creation of the problem solvers
   CALL CMISSSolver_Initialise(DynamicSolverNavierStokes,Err)
   CALL CMISSSolver_Initialise(NonlinearSolverNavierStokes,Err)
@@ -1298,8 +1283,6 @@ PROGRAM Coupled1DCellMLExample
 
   CALL CMISSSolver_Initialise(NonlinearSolverCharacteristic,Err)
   CALL CMISSSolver_Initialise(LinearSolverCharacteristic,Err)
-
-  CALL CMISSProblem_SolversCreateStart(Problem,Err)
 
   !Get the dynamic dynamic solver
   CALL CMISSProblem_SolverGet(Problem,CMISS_CONTROL_LOOP_NODE,SolverNavierStokesUserNumber,DynamicSolverNavierStokes,Err)
@@ -1376,7 +1359,12 @@ PROGRAM Coupled1DCellMLExample
     CALL CMISSCellMLEquations_Initialise(CellMLEquations,Err)
     CALL CMISSProblem_CellMLEquationsCreateStart(Problem,Err)
 
-    CALL CMISSSolver_NewtonCellMLSolverGet(DynamicSolverNavierStokes,CellMLSolver,Err) 
+    IF(windkesselFlag) THEN
+      !Get the DAE solver  
+      CALL CMISSProblem_SolverGet(Problem,CMISS_CONTROL_LOOP_NODE,SolverDAEUserNumber,CellMLSolver,Err)
+    ELSE
+      CALL CMISSSolver_NewtonCellMLSolverGet(DynamicSolverNavierStokes,CellMLSolver,Err) 
+    ENDIF
     CALL CMISSSolver_CellMLEquationsGet(CellMLSolver,CellMLEquations,Err)
     CALL CMISSCellMLEquations_CellMLAdd(CellMLEquations,CellML,CellMLIndex,Err)
     CALL CMISSProblem_CellMLEquationsCreateFinish(Problem,Err)
@@ -1474,30 +1462,9 @@ PROGRAM Coupled1DCellMLExample
   CALL CMISSSolverEquations_BoundaryConditionsCreateFinish(SolverEquationsNavierStokes,Err)
   CALL CMISSSolverEquations_BoundaryConditionsCreateFinish(SolverEquationsCharacteristic,Err)
 
-  !================================================================================================================================
-  ! C e l l M L   P a r a m e t e r s
-  !================================================================================================================================
 
-  IF (cellmlFlag) THEN
 
-    ! Set CellML model parameters (Resistance/Capacitance) at boundary nodes
-    CALL CMISSCellML_FieldComponentGet(CellML,ResistanceModelIndex,CMISS_CELLML_PARAMETERS_FIELD,"equations/Resistance", &
-      & resistanceComponent,Err)
-    CALL CMISSDecomposition_NodeDomainGet(Decomposition,coupledNodeNumber1,1,BoundaryNodeDomain,Err)
-    IF(BoundaryNodeDomain==ComputationalNodeNumber) THEN
-      !Branch 1 R=R
-      CALL CMISSField_ParameterSetUpdateNode(CellMLParametersField,CMISS_FIELD_U_VARIABLE_TYPE,CMISS_FIELD_VALUES_SET_TYPE,1,1,&
-        & coupledNodeNumber1,resistanceComponent,resistanceProximal,Err)
-    ENDIF
-    CALL CMISSDecomposition_NodeDomainGet(Decomposition,coupledNodeNumber2,1,BoundaryNodeDomain,Err)
-    IF(BoundaryNodeDomain==ComputationalNodeNumber) THEN
-      !Branch 2 
-      resistanceProximal= resistanceProximal*0.5_CMISSDP
-      CALL CMISSField_ParameterSetUpdateNode(CellMLParametersField,CMISS_FIELD_U_VARIABLE_TYPE,CMISS_FIELD_VALUES_SET_TYPE,1,1,&
-        & coupledNodeNumber2,resistanceComponent,resistanceProximal,Err)
-    ENDIF
-
-  ENDIF
+  ! Note: CellML Parameters (e.g. resistance, capacitance) should be set within each CellML model file
 
   !================================================================================================================================
   ! RUN SOLVERS
