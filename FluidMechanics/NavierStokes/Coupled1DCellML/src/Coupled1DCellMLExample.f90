@@ -175,6 +175,7 @@ PROGRAM Coupled1DCellMLExample
   INTEGER(CMISSIntg) :: coupledNodeNumber,coupledNodeNumber1,coupledNodeNumber2
   INTEGER(CMISSIntg) :: resistanceComponent,numberOfCoordinateDimensions
   INTEGER(CMISSIntg) :: nodeIdx,versionIdx,componentIdx,normalWave
+  INTEGER(CMISSIntg) :: numberOfNodes
 
   LOGICAL :: LINEAR_SOLVER_NAVIER_STOKES_DIRECT_FLAG
   LOGICAL :: OUTLET_WALL_NODES_NAVIER_STOKES_FLAG
@@ -292,15 +293,6 @@ PROGRAM Coupled1DCellMLExample
   mixedFlag = .TRUE.
   versionsFlag = .FALSE.
   numberOfCoordinateDimensions=2
-!  resistanceProximal=9.2119E+11_CMISSDP
-!  resistanceProximal=9.125E+10_CMISSDP
-!  resistanceProximal=1.3201E+11_CMISSDP
-!   resistanceProximal=0.0_CMISSDP
-
-  resistanceProximal=1.7025E+7_CMISSDP
-!  resistanceProximal=1.0_CMISSDP
-  resistanceDistal=0.0_CMISSDP
-  capacitance=0.0_CMISSDP
   BASIS_NUMBER_SPACE=1
   BASIS_NUMBER_VELOCITY=2
   BASIS_NUMBER_AREA=3
@@ -346,10 +338,8 @@ PROGRAM Coupled1DCellMLExample
   Xs=0.1_CMISSDP     !(m)
   Ts=0.1_CMISSDP     !(s)
   K=4.0/3.0_CMISSDP  !Parabolic Flow Section
-!  Bs=(4.0*1.7725*E_PARAM_NAVIER_STOKES*H0_PARAM_NAVIER_STOKES)/(3.0*As)
   Bs=((4.0_CMISSDP)*(3.1416_CMISSDP**(0.5_CMISSDP))*E_PARAM_NAVIER_STOKES*H0_PARAM_NAVIER_STOKES)/((3.0_CMISSDP)*As)
   St=(As*Xs)/(Ts*Qs)
-!  Fr=((As**2.5)/(Qs**2.0))*(Bs/(2.0*RHO_PARAM_NAVIER_STOKES))
   Fr=((As**(2.5_CMISSDP))/(Qs**2))*(Bs/((2.0_CMISSDP)*RHO_PARAM_NAVIER_STOKES))
   Re=8.0*3.1416*(MU_PARAM_NAVIER_STOKES*Xs)/(Qs*RHO_PARAM_NAVIER_STOKES)
   DO i=1,TOTAL_NUMBER_OF_ELEMENTS
@@ -361,29 +351,9 @@ PROGRAM Coupled1DCellMLExample
   Q2=3.50_CMISSDP
   Q3=3.50_CMISSDP
 
-  ! Q1=7.0_CMISSDP
-  ! Q2=3.0_CMISSDP
-  ! Q3=4.0_CMISSDP
-
-  ! Q1=4.0_CMISSDP
-  ! Q2=2.0_CMISSDP
-  ! Q3=2.0_CMISSDP
-
-  ! A1=0.621_CMISSDP
-  ! A2=0.385_CMISSDP
-  ! A3=0.389_CMISSDP
-
   A1=1.0_CMISSDP
   A2=0.653_CMISSDP
   A3=0.653_CMISSDP
-
-  ! A1=0.5_CMISSDP
-  ! A2=0.3_CMISSDP
-  ! A3=0.2_CMISSDP
-
-  ! A1=1.0_CMISSDP
-  ! A2=0.48115_CMISSDP
-  ! A3=0.249883_CMISSDP
 
   OUTLET_WALL_NODES_NAVIER_STOKES_FLAG=.TRUE.
   INLET_WALL_NODES_NAVIER_STOKES_FLAG=.TRUE.
@@ -419,7 +389,8 @@ PROGRAM Coupled1DCellMLExample
   !Set time parameter
   DYNAMIC_SOLVER_NAVIER_STOKES_START_TIME=0.0_CMISSDP
 !  DYNAMIC_SOLVER_NAVIER_STOKES_STOP_TIME=10.00001_CMISSDP
-  DYNAMIC_SOLVER_NAVIER_STOKES_STOP_TIME=1.001_CMISSDP
+!  DYNAMIC_SOLVER_NAVIER_STOKES_STOP_TIME=1.001_CMISSDP
+  DYNAMIC_SOLVER_NAVIER_STOKES_STOP_TIME=1.000001_CMISSDP
   DYNAMIC_SOLVER_NAVIER_STOKES_TIME_INCREMENT=0.001_CMISSDP
   DYNAMIC_SOLVER_NAVIER_STOKES_THETA=1.0_CMISSDP/2.0_CMISSDP
   !Set result output parameter
@@ -536,6 +507,8 @@ PROGRAM Coupled1DCellMLExample
   MESH_COMPONENT_NUMBER_SPACE=1
   MESH_COMPONENT_NUMBER_VELOCITY=1
   MESH_COMPONENT_NUMBER_AREA=1
+
+  numberOfNodes = 13
 
   ! NODES
   !             7-10-11
@@ -765,7 +738,6 @@ PROGRAM Coupled1DCellMLExample
   CALL CMISSField_VariableLabelSet(DependentFieldNavierStokes,CMISS_FIELD_DELUDELN_VARIABLE_TYPE,'Derivatives',Err)
   CALL CMISSField_VariableLabelSet(DependentFieldNavierStokes,CMISS_FIELD_V_VARIABLE_TYPE,'Characteristics',Err)
   CALL CMISSField_VariableLabelSet(DependentFieldNavierStokes,CMISS_FIELD_U1_VARIABLE_TYPE,'calculated pressure',Err)
-!  CALL CMISSField_VariableLabelSet(DependentFieldNavierStokes,CMISS_FIELD_DELVDELN_VARIABLE_TYPE,'Coupling Derivatives',Err)
 
   !Set the mesh component to be used by the field components.
   COMPONENT_NUMBER=1 ! Velocity
@@ -800,11 +772,6 @@ PROGRAM Coupled1DCellMLExample
 
   !Finish the equations set dependent field variables
   CALL CMISSEquationsSet_DependentCreateFinish(EquationsSetNavierStokes,Err)
-
-  ! IF ((versionsFlag .EQV. .FALSE.) .AND. cellmlFlag) THEN
-  !   CALL CMISSField_ParameterSetCreate(DependentFieldNavierStokes,CMISS_FIELD_V_VARIABLE_TYPE, &
-  !    & CMISS_FIELD_RETURNING_CHARACTERISTIC_TYPE,err)
-  ! ENDIF
 
   versionIdx=1
   componentIdx=1
@@ -1006,8 +973,6 @@ PROGRAM Coupled1DCellMLExample
   !Finish the equations set independent field variables
   CALL CMISSEquationsSet_IndependentCreateFinish(EquationsSetCharacteristic,Err)
 
-  !(field,variableType,fieldSetType,versionNumber,derivativeNumber,userNodeNumber,componentNumber,value,err)
-
   ! normalWave node 5
   nodeIdx=5
   componentIdx=1 ! Incoming normal
@@ -1089,7 +1054,7 @@ PROGRAM Coupled1DCellMLExample
 
   !================================================================================================================================
   !  C e l l M L    M o d e l    M a p s
-  !=====================================ppp===========================================================================================
+  !================================================================================================================================
 
   IF (cellmlFlag) THEN
 
@@ -1159,7 +1124,7 @@ PROGRAM Coupled1DCellMLExample
       CALL CMISSCellML_CreateFieldToCellMLMap(CellML,DependentFieldNavierStokes,CMISS_FIELD_U_VARIABLE_TYPE,1, &
         & CMISS_FIELD_VALUES_SET_TYPE,CellMLModelIndex,"interface/FlowRate",CMISS_FIELD_VALUES_SET_TYPE,Err)
       !Map the returned pressure values from CellML --> CMISS
-      ! pCellML is component 2 of the Dependent field V variable
+      ! pCellML is component 2 of the Dependent field U1 variable
       CALL CMISSCellML_CreateCellMLToFieldMap(CellML,CellMLModelIndex,"interface/Pressure",CMISS_FIELD_VALUES_SET_TYPE, &
         & DependentFieldNavierStokes,CMISS_FIELD_U1_VARIABLE_TYPE,pCellMLComponent,CMISS_FIELD_VALUES_SET_TYPE,Err)
     ENDDO ! modelIndex
@@ -1167,10 +1132,24 @@ PROGRAM Coupled1DCellMLExample
     !Finish the creation of CellML <--> OpenCMISS field maps
     CALL CMISSCellML_FieldMapsCreateFinish(CellML,Err)
 
-    !Create the CellML models field --- only 1 model here
+    !Create the CellML models field
     CALL CMISSField_Initialise(CellMLModelsField,Err)
     CALL CMISSCellML_ModelsFieldCreateStart(CellML,CellMLModelsFieldUserNumber,CellMLModelsField,Err)
     CALL CMISSCellML_ModelsFieldCreateFinish(CellML,Err)
+    ! If we have multiple CellML models (1 R, 1 RCR boundary) set models field at each DOF
+    IF(mixedFlag) THEN
+      DO nodeIdx=1,numberOfNodes
+        IF(nodeIdx == coupledNodeNumber1) THEN
+          CellMLModelIndex = CellMLModelIndex1
+        ELSE IF(nodeIdx == coupledNodeNumber2) THEN        
+          CellMLModelIndex = CellMLModelIndex2
+        ELSE
+          CellMLModelIndex = 0_CMISSIntg
+        ENDIF
+        CALL CMISSField_ParameterSetUpdateNode(CellMLModelsField, CMISS_FIELD_U_VARIABLE_TYPE, CMISS_FIELD_VALUES_SET_TYPE,&
+         & 1,CMISS_NO_GLOBAL_DERIV,nodeIdx,1,CellMLModelIndex,Err)
+      ENDDO
+    ENDIF
 
     IF (windkesselFlag) THEN 
       !Start the creation of the CellML state field
