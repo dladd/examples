@@ -1080,7 +1080,8 @@ PROGRAM Coupled1DCellMLExample
     IF(windkesselFlag) THEN
       IF(mixedFlag) THEN
         CALL CMISSCellML_ModelImport(CellML,"./CellMLModels/Windkessel/WindkesselMain.cellml",CellMLModelIndex1,Err)
-        CALL CMISSCellML_ModelImport(CellML,"./CellMLModels/WResistance/WindkesselMain.cellml",CellMLModelIndex2,Err)
+        CALL CMISSCellML_ModelImport(CellML,"./CellMLModels/Resistance/resistance.xml",CellMLModelIndex2,Err)
+!        CALL CMISSCellML_ModelImport(CellML,"./CellMLModels/WResistance/WindkesselMain.cellml",CellMLModelIndex2,Err)
         numberOfCellmlModels = 2
       ELSE
         CALL CMISSCellML_ModelImport(CellML,"./CellMLModels/Windkessel/WindkesselMain.cellml",CellMLModelIndex,Err)
