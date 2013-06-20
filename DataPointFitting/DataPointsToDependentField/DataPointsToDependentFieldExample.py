@@ -97,19 +97,22 @@ dataPointZInit = -0.25
 numberOfDimensions = 3
 
 # Set sobelov smoothing parameters
+
 tau = 0.0001
 kappa = 0.0005
+#tau = 0.0
+#kappa = 0.0
 
 # Set mesh resolution
-numberGlobalXElements = 5
-numberGlobalYElements = 5
-numberGlobalZElements = 5
+numberGlobalXElements = 3
+numberGlobalYElements = 3
+numberGlobalZElements = 3
 numberOfElements = numberGlobalXElements*numberGlobalYElements*numberGlobalZElements
 
 # Set data point resolution
-numberGlobalXDataPoints = 15
-numberGlobalYDataPoints = 15
-numberGlobalZDataPoints = 15
+numberGlobalXDataPoints = 2
+numberGlobalYDataPoints = 2
+numberGlobalZDataPoints = 2
 
 CMISS.DiagnosticsSetOn(CMISS.DiagnosticTypes.IN,[1,2,3,4,5],"Diagnostics",["DOMAIN_MAPPINGS_LOCAL_FROM_GLOBAL_CALCULATE"])
 
@@ -172,7 +175,8 @@ basis = CMISS.Basis()
 basis.CreateStart(basisUserNumber)
 basis.type = CMISS.BasisTypes.LAGRANGE_HERMITE_TP
 basis.numberOfXi = 3
-basis.interpolationXi = [CMISS.BasisInterpolationSpecifications.LINEAR_LAGRANGE]*3
+#basis.interpolationXi = [CMISS.BasisInterpolationSpecifications.LINEAR_LAGRANGE]*3
+basis.interpolationXi = [CMISS.BasisInterpolationSpecifications.QUADRATIC_LAGRANGE]*3
 basis.quadratureNumberOfGaussXi = [3]*3
 basis.CreateFinish()
 
@@ -227,6 +231,7 @@ mesh.TopologyDataPointsCalculateProjection(dataProjection)
 # Create decomposition topology for data projection
 decomposition.TopologyDataProjectionCalculate()
 
+print("Data projection finished")
 #=================================================================
 # Equations Set
 #=================================================================
@@ -270,28 +275,56 @@ independentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.Fi
 # Initialise data point weight field to 1
 independentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,1,1.0)
 
-# set data point field values
-for dataPoint in range(numberDataPoints):
-    dataPointId = dataPoint + 1
-    projectedElementNumber = dataProjection.ElementGet(dataPointId)
-    elementDomain = decomposition.ElementDomainGet(projectedElementNumber)
+minDistance=0.01 
+
+for element in range(numberOfElements):
+    elementId = element + 1
+    elementDomain = decomposition.ElementDomainGet(elementId)
     if (elementDomain == computationalNodeNumber):
-        for component in range(numberOfDimensions):
-            componentId = component + 1
-            value = dataPointLocations[dataPoint,component]
-            independentField.ParameterSetUpdateDataPointDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,dataPointId,componentId,value)
+        numberOfProjectedDataPoints = decomposition.TopologyNumberOfElementDataPointsGet(elementId)
+        for dataPoint in range(numberOfProjectedDataPoints):
+            dataPointId = dataPoint + 1
+            dataPointNumber = decomposition.TopologyElementDataPointUserNumberGet(elementId,dataPointId)
+#            print(dataPointNumber)
+            # set data point field values
+            for component in range(numberOfDimensions):
+                componentId = component + 1
+                dataPointNumberIndex = dataPointNumber - 1
+                value = dataPointLocations[dataPointNumberIndex,component]
+#                value = 1.0 
+                independentField.ParameterSetUpdateElementDataPointDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,elementId,dataPointId,componentId,value)
+
+            # Set data point weights based on distance
+            distance = dataProjection.DistanceGet(dataPointNumber)
+            value = 1/(distance+minDistance)**2
+    #        value = 1.0
+            independentField.ParameterSetUpdateElementDataPointDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,elementId,dataPointId,1,value)
+            
+
+# for dataPoint in range(numberDataPoints):
+#     dataPointId = dataPoint + 1
+#     # Returns element number from the user data point number
+#     projectedElementNumber = dataProjection.ElementGet(dataPointId)
+#     elementDomain = decomposition.ElementDomainGet(projectedElementNumber)
+#     if (elementDomain == computationalNodeNumber):
+#         # Get the local data point number for the 
+#         for component in range(numberOfDimensions):
+#             componentId = component + 1
+# #            value = dataPointLocations[dataPoint,component]
+#             value = 1.0
+#             independentField.ParameterSetUpdateDataPointDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,dataPointId,componentId,value)
 
 # set data point weights as inverse squared distance
-componentId=1
-minDistance=0.0001 
-for dataPoint in range(numberDataPoints):
-    dataPointId = dataPoint + 1
-    projectedElementNumber = dataProjection.ElementGet(dataPointId)
-    elementDomain = decomposition.ElementDomainGet(projectedElementNumber)
-    if (elementDomain == computationalNodeNumber):
-        distance = dataProjection.DistanceGet(dataPointId)
-        value = 1/(distance+minDistance)**2
-        independentField.ParameterSetUpdateDataPointDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,dataPointId,componentId,value)
+
+# for dataPoint in range(numberDataPoints):
+#     dataPointId = dataPoint + 1
+#     projectedElementNumber = dataProjection.ElementGet(dataPointId)
+#     elementDomain = decomposition.ElementDomainGet(projectedElementNumber)
+#     if (elementDomain == computationalNodeNumber):
+#         distance = dataProjection.DistanceGet(dataPointId)
+# #        value = 1/(distance+minDistance)**2
+#         value = 1.0
+#         independentField.ParameterSetUpdateDataPointDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,dataPointId,componentId,value)
 
 #=================================================================
 # Material Field
@@ -368,6 +401,7 @@ solverEquations.BoundaryConditionsCreateFinish()
 #=================================================================
 
 # Solve the problem
+print("Solving...")
 problem.Solve()
 
 
@@ -375,7 +409,7 @@ problem.Solve()
 # Export results
 #=================================================================
 exportFieldml = False
-
+print("Fitting complete- exporting results")
 if (exportFieldml):
     # Export geometric field (fieldML)
     baseName = "dataFit"
