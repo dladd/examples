@@ -52,6 +52,7 @@ import sys, os
 sys.path.append(os.sep.join((os.environ['OPENCMISS_ROOT'],'cm','bindings','python')))
 
 import numpy
+from numpy import linalg
 import math
 
 # Intialise OpenCMISS
@@ -61,14 +62,24 @@ from opencmiss import CMISS
 height = 1.0
 width = 1.0
 length = 1.0
+meshDimensions=[height,width,length]
+meshOrigin=[0.0,0.0,0.0]
 
+numberOfDimensions = 3
 # Set data point grid dimensions
-heightData = 1.5
-widthData = 1.5
-lengthData = 1.5
-dataPointXInit = -0.25
-dataPointYInit = -0.25
-dataPointZInit = -0.25
+
+meshResolution = 8
+dataResolution = 4
+setBoundaries = True
+quadraticMesh = True
+# Embedded only
+dataPointInit = []
+dataPointRegionSize = []
+meshRegionSize = []
+for i in range(numberOfDimensions):
+    meshRegionSize.append(1.0)
+    dataPointRegionSize.append(0.7)
+    dataPointInit.append(0.15)
 
 (coordinateSystemUserNumber,
     regionUserNumber,
@@ -79,6 +90,7 @@ dataPointZInit = -0.25
     geometricFieldUserNumber,
     dummyCoordinateSystemUserNumber,
     dummyRegionUserNumber,
+    dummyBasisUserNumber,
     dummyGeneratedMeshUserNumber,
     dummyMeshUserNumber,
     dummyDecompositionUserNumber,
@@ -89,30 +101,49 @@ dataPointZInit = -0.25
     independentFieldUserNumber,
     dataPointFieldUserNumber,
     materialFieldUserNumber,
+    analyticFieldUserNumber,
     dependentDataFieldUserNumber,
     dataProjectionUserNumber,
     equationsSetUserNumber,
-    problemUserNumber) = range(1,24)
-
-numberOfDimensions = 3
+    problemUserNumber) = range(1,26)
 
 # Set sobelov smoothing parameters
 
-tau = 0.0001
-kappa = 0.0005
-#tau = 0.0
-#kappa = 0.0
+tau = 0.01
+kappa = 0.5
 
-# Set mesh resolution
-numberGlobalXElements = 3
-numberGlobalYElements = 3
-numberGlobalZElements = 3
-numberOfElements = numberGlobalXElements*numberGlobalYElements*numberGlobalZElements
+numberCoordinateElements = []
+numberCoordinateDataPoints = []
+numberOfElements = 1
+numberDataPoints = 1
 
-# Set data point resolution
-numberGlobalXDataPoints = 2
-numberGlobalYDataPoints = 2
-numberGlobalZDataPoints = 2
+# Mesh and data point resolution
+for dimension in range(numberOfDimensions):
+    numberCoordinateElements.append(meshResolution)
+    numberCoordinateDataPoints.append(dataResolution)
+    numberOfElements = numberOfElements*numberCoordinateElements[dimension]
+    numberDataPoints = numberDataPoints*numberCoordinateDataPoints[dimension]
+
+# if (numberOfDimensions == 3) :
+#     # Set mesh resolution
+#     numberCoordinateElements[0] = 5
+#     numberCoordinateElements[1] = 5
+#     numberCoordinateElements[2] = 5
+#     numberOfElements = numberCoordinateElements[0]*numberCoordinateElements[1]*numberCoordinateElements[2]
+#     # Set data point resolution
+#     numberCoordinateDataPoints[0] = 10
+#     numberCoordinateDataPoints[1] = 10
+#     numberCoordinateDataPoints[2] = 10
+#     numberDataPoints = numberCoordinateDataPoints[0]*numberCoordinateDataPoints[1]*numberCoordinateDataPoints[2]
+# elif (numberOfDimensions == 2) :
+#     # Set mesh resolution
+#     numberCoordinateElements[0] = 5
+#     numberCoordinateElements[1] = 5
+#     numberOfElements = numberCoordinateElements[0]*numberCoordinateElements[1]
+#     # Set data point resolution
+#     numberCoordinateDataPoints[0] = 10
+#     numberCoordinateDataPoints[1] = 10
+#     numberDataPoints = numberCoordinateDataPoints[0]*numberCoordinateDataPoints[1]
 
 CMISS.DiagnosticsSetOn(CMISS.DiagnosticTypes.IN,[1,2,3,4,5],"Diagnostics",["DOMAIN_MAPPINGS_LOCAL_FROM_GLOBAL_CALCULATE"])
 
@@ -134,27 +165,35 @@ region.coordinateSystem = coordinateSystem
 region.CreateFinish()
 
 #=================================================================
-# Data Point/Projection 
+# Data Points
 #=================================================================
 
-numberDataPoints = numberGlobalXDataPoints*numberGlobalYDataPoints*numberGlobalZDataPoints
-
 # Create a numpy array of data point locations
-dataPointLocations = numpy.zeros((numberDataPoints,3))
+dataPointLocations = numpy.zeros((numberDataPoints,numberOfDimensions))
 i = 0
-dataPointX = dataPointXInit
-dataPointY = dataPointYInit
-dataPointZ = dataPointZInit
-for x in range (numberGlobalXDataPoints):
-    for y in range (numberGlobalYDataPoints):
-        for z in range (numberGlobalZDataPoints):
-            dataPointLocations[i,:] = [dataPointX,dataPointY,dataPointZ]
-            dataPointZ += (lengthData/(numberGlobalZDataPoints-1))
+#dataPointCoordinate = []
+dataPointX = dataPointInit[0]
+dataPointY = dataPointInit[1]
+if (numberOfDimensions==3):
+    dataPointZ = dataPointInit[2]
+
+print("Number of data points:")
+print(numberCoordinateDataPoints)
+
+for x in range (numberCoordinateDataPoints[0]):
+    for y in range (numberCoordinateDataPoints[1]):
+        if (numberOfDimensions == 3):
+            for z in range (numberCoordinateDataPoints[2]):
+                dataPointLocations[i,:] = [dataPointX,dataPointY,dataPointZ]
+                dataPointZ += (dataPointRegionSize[2]/(numberCoordinateDataPoints[2]-1))
+                i+=1
+            dataPointZ = dataPointInit[2]
+        dataPointY += (dataPointRegionSize[1]/(numberCoordinateDataPoints[1]-1))
+        if (numberOfDimensions == 2):
+            dataPointLocations[i,:] = [dataPointX,dataPointY]
             i+=1
-        dataPointZ = dataPointZInit
-        dataPointY += (heightData/(numberGlobalYDataPoints-1))
-    dataPointY = dataPointYInit
-    dataPointX += (widthData/(numberGlobalXDataPoints-1))
+    dataPointY = dataPointInit[1]
+    dataPointX += (dataPointRegionSize[0]/(numberCoordinateDataPoints[0]-1))
 
 # Set up data points with geometric values
 dataPoints = CMISS.DataPoints()
@@ -167,17 +206,20 @@ for dataPoint in range(numberDataPoints):
 dataPoints.CreateFinish()
 
 #=================================================================
-# Setup Mesh
+# Mesh
 #=================================================================
 
-# Create a bi-linear lagrange basis
+# Create a lagrange basis
 basis = CMISS.Basis()
 basis.CreateStart(basisUserNumber)
 basis.type = CMISS.BasisTypes.LAGRANGE_HERMITE_TP
-basis.numberOfXi = 3
-#basis.interpolationXi = [CMISS.BasisInterpolationSpecifications.LINEAR_LAGRANGE]*3
-basis.interpolationXi = [CMISS.BasisInterpolationSpecifications.QUADRATIC_LAGRANGE]*3
-basis.quadratureNumberOfGaussXi = [3]*3
+basis.numberOfXi = numberOfDimensions
+if (quadraticMesh):
+    basis.interpolationXi = [CMISS.BasisInterpolationSpecifications.QUADRATIC_LAGRANGE]*numberOfDimensions
+else:
+    basis.interpolationXi = [CMISS.BasisInterpolationSpecifications.LINEAR_LAGRANGE]*numberOfDimensions
+
+basis.quadratureNumberOfGaussXi = [numberOfDimensions]*numberOfDimensions
 basis.CreateFinish()
 
 # Create a generated mesh
@@ -185,8 +227,9 @@ generatedMesh = CMISS.GeneratedMesh()
 generatedMesh.CreateStart(generatedMeshUserNumber,region)
 generatedMesh.type = CMISS.GeneratedMeshTypes.REGULAR
 generatedMesh.basis = [basis]
-generatedMesh.extent = [width,height,length]
-generatedMesh.numberOfElements = [numberGlobalXElements,numberGlobalYElements,numberGlobalZElements]
+generatedMesh.extent = meshRegionSize
+
+generatedMesh.numberOfElements = numberCoordinateElements
 mesh = CMISS.Mesh()
 generatedMesh.CreateFinish(meshUserNumber,mesh)
 
@@ -195,27 +238,32 @@ decomposition = CMISS.Decomposition()
 decomposition.CreateStart(decompositionUserNumber,mesh)
 decomposition.type = CMISS.DecompositionTypes.CALCULATED
 decomposition.numberOfDomains = numberOfComputationalNodes
-#decomposition.CalculateFacesSet(True)
 decomposition.CreateFinish()
 
 #=================================================================
-# Setup Geometric Field
+# Geometric Field
 #=================================================================
 
 # Create a field for the geometry
 geometricField = CMISS.Field()
 geometricField.CreateStart(geometricFieldUserNumber,region)
 geometricField.meshDecomposition = decomposition
-geometricField.ComponentMeshComponentSet(CMISS.FieldVariableTypes.U,1,1)
-geometricField.ComponentMeshComponentSet(CMISS.FieldVariableTypes.U,2,1)
-geometricField.ComponentMeshComponentSet(CMISS.FieldVariableTypes.U,3,1)
+for dimension in range(numberOfDimensions):
+    geometricField.ComponentMeshComponentSet(CMISS.FieldVariableTypes.U,dimension+1,1)
 geometricField.CreateFinish()
 
 # Set geometry from the generated mesh
 generatedMesh.GeometricParametersCalculate(geometricField)
 
+# Export mesh geometry
+fields = CMISS.Fields()
+fields.CreateRegion(region)
+fields.NodesExport("Geometry","FORTRAN")
+fields.ElementsExport("Geometry","FORTRAN")
+fields.Finalise()
+
 #=================================================================
-# Setup Data Projection on Geometric Field
+# Data Projection on Geometric Field
 #=================================================================
 
 # Set up data projection
@@ -247,17 +295,57 @@ equationsSet.CreateStart(equationsSetUserNumber,region,geometricField,
 equationsSet.CreateFinish()
 
 #=================================================================
+# Nodes
+#=================================================================
+nodes = CMISS.Nodes()
+region.NodesGet(nodes)
+numberOfNodes = nodes.numberOfNodes
+
+#=================================================================
 # Dependent Field
 #=================================================================
-
 # Create dependent field (fitted values from data points)
 dependentField = CMISS.Field()
 equationsSet.DependentCreateStart(dependentFieldUserNumber,dependentField)
 dependentField.VariableLabelSet(CMISS.FieldVariableTypes.U,"Dependent")
-#dependentField.DOFOrderTypeSet(CMISS.FieldVariableTypes.U,CMISS.FieldDOFOrderTypes.SEPARATED)
 equationsSet.DependentCreateFinish()
 # Initialise dependent field
 dependentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,1,0.0)
+
+# Analytic values to test against - based on geometry field
+#-----------------------------------------------------------
+geometricValue = 0.0
+dependentField.ParameterSetCreate(CMISS.FieldVariableTypes.U,
+                                  CMISS.FieldParameterSetTypes.ANALYTIC_VALUES)
+dependentField.ParameterSetCreate(CMISS.FieldVariableTypes.DELUDELN,
+                                  CMISS.FieldParameterSetTypes.ANALYTIC_VALUES)
+
+dependentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,
+                                          CMISS.FieldParameterSetTypes.ANALYTIC_VALUES,
+                                          1,geometricValue)
+dependentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.DELUDELN,
+                                          CMISS.FieldParameterSetTypes.ANALYTIC_VALUES,
+                                          1,geometricValue)
+#set node-based analytic field to function of geometric field
+for node in range(numberOfNodes):
+    nodeId = node + 1
+    for component in range(numberOfDimensions):
+        componentId = component+1
+        geometricValue=geometricField.ParameterSetGetNodeDP(CMISS.FieldVariableTypes.U,
+                                                            CMISS.FieldParameterSetTypes.VALUES,
+                                                            1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,nodeId,componentId)
+        value = geometricValue
+#        print(value)
+        dependentField.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,
+                                               CMISS.FieldParameterSetTypes.ANALYTIC_VALUES,
+                                               1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
+                                               nodeId,componentId,value)
+
+# Export Fields w/o independent
+fields = CMISS.Fields()
+fields.CreateRegion(region)
+fields.ElementsExport("Dependent","FORTRAN")
+fields.Finalise()
 
 #=================================================================
 # Independent Field
@@ -275,7 +363,7 @@ independentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.Fi
 # Initialise data point weight field to 1
 independentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,1,1.0)
 
-minDistance=0.01 
+minDistance=0.0001 
 
 for element in range(numberOfElements):
     elementId = element + 1
@@ -285,52 +373,25 @@ for element in range(numberOfElements):
         for dataPoint in range(numberOfProjectedDataPoints):
             dataPointId = dataPoint + 1
             dataPointNumber = decomposition.TopologyElementDataPointUserNumberGet(elementId,dataPointId)
-#            print(dataPointNumber)
             # set data point field values
             for component in range(numberOfDimensions):
                 componentId = component + 1
                 dataPointNumberIndex = dataPointNumber - 1
                 value = dataPointLocations[dataPointNumberIndex,component]
-#                value = 1.0 
                 independentField.ParameterSetUpdateElementDataPointDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,elementId,dataPointId,componentId,value)
 
             # Set data point weights based on distance
-            distance = dataProjection.DistanceGet(dataPointNumber)
-            value = 1/(distance+minDistance)**2
-    #        value = 1.0
+            distance = dataProjection.ResultDistanceGet(dataPointNumber)
+#            value = 1/(distance+minDistance)**2
+            value = 1.0
             independentField.ParameterSetUpdateElementDataPointDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,elementId,dataPointId,1,value)
-            
 
-# for dataPoint in range(numberDataPoints):
-#     dataPointId = dataPoint + 1
-#     # Returns element number from the user data point number
-#     projectedElementNumber = dataProjection.ElementGet(dataPointId)
-#     elementDomain = decomposition.ElementDomainGet(projectedElementNumber)
-#     if (elementDomain == computationalNodeNumber):
-#         # Get the local data point number for the 
-#         for component in range(numberOfDimensions):
-#             componentId = component + 1
-# #            value = dataPointLocations[dataPoint,component]
-#             value = 1.0
-#             independentField.ParameterSetUpdateDataPointDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,dataPointId,componentId,value)
-
-# set data point weights as inverse squared distance
-
-# for dataPoint in range(numberDataPoints):
-#     dataPointId = dataPoint + 1
-#     projectedElementNumber = dataProjection.ElementGet(dataPointId)
-#     elementDomain = decomposition.ElementDomainGet(projectedElementNumber)
-#     if (elementDomain == computationalNodeNumber):
-#         distance = dataProjection.DistanceGet(dataPointId)
-# #        value = 1/(distance+minDistance)**2
-#         value = 1.0
-#         independentField.ParameterSetUpdateDataPointDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,dataPointId,componentId,value)
 
 #=================================================================
 # Material Field
 #=================================================================
 
-# Create material field (fitted values from data points)
+# Create material field (sobelov parameters)
 materialField = CMISS.Field()
 equationsSet.MaterialsCreateStart(materialFieldUserNumber,materialField)
 materialField.VariableLabelSet(CMISS.FieldVariableTypes.U,"Smoothing Parameters")
@@ -339,6 +400,7 @@ equationsSet.MaterialsCreateFinish()
 # Set kappa and tau - Sobelov smoothing parameters
 materialField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,1,tau)
 materialField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,2,kappa)
+
 
 #=================================================================
 # Equations
@@ -394,6 +456,44 @@ problem.SolverEquationsCreateFinish()
 # Create boundary conditions and set first and last nodes to 0.0 and 1.0
 boundaryConditions = CMISS.BoundaryConditions()
 solverEquations.BoundaryConditionsCreateStart(boundaryConditions)
+
+zeroTolerance = 0.00001
+version = 1
+boundaryNodeList = []
+
+if (setBoundaries):
+    # first find which nodes are boundary nodes
+    for node in range(numberOfNodes):
+        nodeId = node + 1
+        for component in range(numberOfDimensions):
+            componentId = component+1
+            geometricValue=geometricField.ParameterSetGetNodeDP(CMISS.FieldVariableTypes.U,
+                                                                CMISS.FieldParameterSetTypes.VALUES,
+                                                                1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
+                                                                nodeId,componentId)
+            if(geometricValue < meshOrigin[component] +zeroTolerance or 
+               geometricValue > meshDimensions[component] - zeroTolerance):
+
+                boundaryNodeList.append(nodeId)
+                break
+
+    # now set boundary conditions on boundary nodes
+    for nodeId in boundaryNodeList:
+        for component in range(numberOfDimensions):
+            componentId = component+1
+            geometricValue=geometricField.ParameterSetGetNodeDP(CMISS.FieldVariableTypes.U,
+                                                                CMISS.FieldParameterSetTypes.VALUES,
+                                                                1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
+                                                                nodeId,componentId)
+            value = geometricValue
+
+#            print("node # " + str(nodeId) + "component # " + str(componentId))
+
+            boundaryConditions.SetNode(dependentField,CMISS.FieldVariableTypes.U,
+                                       version,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
+                                       nodeId,componentId,
+                                       CMISS.BoundaryConditionsTypes.FIXED,value)
+
 solverEquations.BoundaryConditionsCreateFinish()
 
 #=================================================================
@@ -404,32 +504,44 @@ solverEquations.BoundaryConditionsCreateFinish()
 print("Solving...")
 problem.Solve()
 
-
 #=================================================================
 # Export results
 #=================================================================
-exportFieldml = False
+
 print("Fitting complete- exporting results")
-if (exportFieldml):
-    # Export geometric field (fieldML)
-    baseName = "dataFit"
-    dataFormat = "PLAIN_TEXT"
-    fml = CMISS.FieldMLIO()
-    fml.OutputCreate(mesh, "", baseName, dataFormat)
-    fml.OutputAddFieldNoType(baseName+".geometric", dataFormat, geometricField,
-        CMISS.FieldVariableTypes.U, CMISS.FieldParameterSetTypes.VALUES)
-    # ouput dependent field results
-    fml.OutputAddFieldNoType(baseName+".dependent", dataFormat, dependentField,
-        CMISS.FieldVariableTypes.U, CMISS.FieldParameterSetTypes.VALUES)
-    fml.OutputWrite("DataFitExample.xml")
-    fml.Finalise()
+
+print("exporting analytic analysis")
+
+if (quadraticMesh):
+    analysisFile = "quadraticMesh" + str(meshResolution) + "Data" + str(dataResolution) + "Tau" + str(tau) + "Kappa" + str(kappa)
 else:
-    # Export results
-    fields = CMISS.Fields()
-    fields.CreateRegion(region)
-    fields.NodesExport("DataFit","FORTRAN")
-    fields.ElementsExport("DataFit","FORTRAN")
-    fields.Finalise()
+    analysisFile = "linearMesh" + str(meshResolution) + "Data" + str(dataResolution) + "Tau" + str(tau) + "Kappa" + str(kappa)
+
+CMISS.AnalyticAnalysisOutput(dependentField,analysisFile)
+AbsError = numpy.zeros((numberOfNodes,numberOfDimensions))
+ErrorMag = numpy.zeros((numberOfNodes))
+for node in range(numberOfNodes):
+    nodeId = node + 1
+    for component in range(numberOfDimensions):
+        componentId = component+1
+        AbsError[node,component]=CMISS.AnalyticAnalysisAbsoluteErrorGetNode(dependentField,CMISS.FieldVariableTypes.U,1,
+                                                                            CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
+                                                                            nodeId,componentId)
+    ErrorMag[node] = linalg.norm(AbsError[node,:])
+
+RMSError = numpy.sqrt(numpy.mean(ErrorMag**2))
+
+print("Error: ")
+print(RMSError)
+
+
+
+print("exporting CMGUI data")
+# Export results
+fields = CMISS.Fields()
+fields.CreateRegion(region)
+fields.NodesExport("DataFit","FORTRAN")
+fields.Finalise()
 
 #-----------------------------------------------------------------
 # Dummy data points mesh - for display only!
@@ -451,10 +563,22 @@ dummyRegion.CreateFinish()
 dummyGeneratedMesh = CMISS.GeneratedMesh()
 dummyGeneratedMesh.CreateStart(dummyGeneratedMeshUserNumber,dummyRegion)
 dummyGeneratedMesh.type = CMISS.GeneratedMeshTypes.REGULAR
-dummyGeneratedMesh.basis = [basis]
-dummyGeneratedMesh.extent = [widthData,heightData,lengthData]
-dummyGeneratedMesh.origin = [dataPointXInit,dataPointYInit,dataPointZInit]
-dummyGeneratedMesh.numberOfElements = [numberGlobalXDataPoints,numberGlobalYDataPoints,numberGlobalZDataPoints]
+
+dummyBasis = CMISS.Basis()
+dummyBasis.CreateStart(dummyBasisUserNumber)
+dummyBasis.type = CMISS.BasisTypes.LAGRANGE_HERMITE_TP
+dummyBasis.numberOfXi = numberOfDimensions
+dummyBasis.interpolationXi = [CMISS.BasisInterpolationSpecifications.LINEAR_LAGRANGE]*numberOfDimensions
+dummyBasis.quadratureNumberOfGaussXi = [numberOfDimensions]*numberOfDimensions
+dummyBasis.CreateFinish()
+
+dummyGeneratedMesh.basis = [dummyBasis]
+dummyGeneratedMesh.extent = dataPointRegionSize
+dummyGeneratedMesh.origin = dataPointInit
+
+print("Number of data points:")
+print(numberCoordinateDataPoints)
+dummyGeneratedMesh.numberOfElements = [i-1 for i in numberCoordinateDataPoints]
 dummyMesh = CMISS.Mesh()
 dummyGeneratedMesh.CreateFinish(dummyMeshUserNumber,dummyMesh)
 
@@ -470,32 +594,31 @@ dummyDecomposition.CreateFinish()
 dummyGeometricField = CMISS.Field()
 dummyGeometricField.CreateStart(dummyGeometricFieldUserNumber,dummyRegion)
 dummyGeometricField.meshDecomposition = dummyDecomposition
-dummyGeometricField.ComponentMeshComponentSet(CMISS.FieldVariableTypes.U,1,1)
-dummyGeometricField.ComponentMeshComponentSet(CMISS.FieldVariableTypes.U,2,1)
-dummyGeometricField.ComponentMeshComponentSet(CMISS.FieldVariableTypes.U,3,1)
+for dimension in range(numberOfDimensions):
+    dummyGeometricField.ComponentMeshComponentSet(CMISS.FieldVariableTypes.U,dimension+1,1)
 dummyGeometricField.CreateFinish()
 
 # Set geometry from the generated mesh
 dummyGeneratedMesh.GeometricParametersCalculate(dummyGeometricField)
 
-if (exportFieldml):
-    # Export dummy display mesh
-    baseName = "dataPoints"
-    dataFormat = "PLAIN_TEXT"
-    fml = CMISS.FieldMLIO()
-    fml.OutputCreate(dummyMesh, "", baseName, dataFormat)
-    # Write geometric field
-    fml.OutputCreate(dummyMesh, "", baseName, dataFormat)
-    fml.OutputAddFieldNoType(baseName+".geometric", dataFormat, dummyGeometricField,
-        CMISS.FieldVariableTypes.U, CMISS.FieldParameterSetTypes.VALUES)
-    fml.OutputWrite("DataPoints.xml")
-    fml.Finalise()
-else:
-    # Export results
-    fields = CMISS.Fields()
-    fields.CreateRegion(dummyRegion)
-    fields.NodesExport("DataPoints","FORTRAN")
-    fields.Finalise()
+# Export dummy display mesh
+baseName = "dataPoints"
+dataFormat = "PLAIN_TEXT"
+fml = CMISS.FieldMLIO()
+fml.OutputCreate(dummyMesh, "", baseName, dataFormat)
+# Write geometric field
+fml.OutputCreate(dummyMesh, "", baseName, dataFormat)
+fml.OutputAddFieldNoType(baseName+".geometric", dataFormat, dummyGeometricField,
+    CMISS.FieldVariableTypes.U, CMISS.FieldParameterSetTypes.VALUES)
+fml.OutputWrite("DataPoints.xml")
+fml.Finalise()
+
+# else:
+#     # Export results
+#     fields = CMISS.Fields()
+#     fields.CreateRegion(dummyRegion)
+#     fields.NodesExport("DataPoints","FORTRAN")
+#     fields.Finalise()
 
 #Destroy dummy objects
 dummyGeometricField.Destroy()
