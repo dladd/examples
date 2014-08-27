@@ -85,28 +85,6 @@ def writeExdataFile(filename,dataPointLocations):
     except IOError:
         print ('Could not open file: ' + filename)
 
-def writeIpdataFile(filename,dataPointLocations):
-    "Writes 3D data points to an ipdata file"
-
-    try:
-        f = open(filename,"w")    
-        header = 'cube\n'
-        f.write(header)
-
-        numberOfDataPoints = len(dataPointLocations)
-        for i in range(numberOfDataPoints):
-            line = str(i+1)
-            for j in range (3):
-                line += ' ' + str(dataPointLocations[i,j])
-            for j in range (3):
-                line += ' 1.0'
-            line += '\n'
-            f.write(line)
-        f.close()
-            
-    except IOError:
-        print ('Could not open file: ' + filename)
-        
 
 #=================================================================
 # Control Panel
@@ -216,7 +194,6 @@ dataPoints.CreateFinish()
 
 print("Writing data points file")
 writeExdataFile("DataPoints.exdata",dataPointLocations)
-#writeIpdataFile("cube.ipdata",dataPointLocations)
 
 #=================================================================
 # Mesh
@@ -320,43 +297,6 @@ else:
     fields.NodesExport("UndeformedGeometry","FORTRAN")
     fields.ElementsExport("UndeformedGeometry","FORTRAN")
     fields.Finalise()
-
-writeIpnode = True
-if (writeIpnode):
-    meshComponent = decomposition.MeshComponentGet()
-    try:
-        f = open("cube.ipnode","w")    
-        header = ''' CMISS Version 1.21 ipnode File Version 2
- Heading: 27 nodes in a cube
- 
- The number of nodes is [    1]:     27
- Number of coordinates [3]: 3
- Do you want prompting for different versions of nj=1 [N]? N
- Do you want prompting for different versions of nj=2 [N]? N
- Do you want prompting for different versions of nj=3 [N]? N
- The number of derivatives for coordinate 1 is [0]: 0
- The number of derivatives for coordinate 2 is [0]: 0
- The number of derivatives for coordinate 3 is [0]: 0'''
-        f.write(header)
-
-        undeformedValue = numpy.zeros((numberOfDimensions))
-        for node in range(numberOfNodes):
-            nodeId = node + 1
-            nodeDomain = decomposition.NodeDomainGet(nodeId,meshComponent)
-            if (nodeDomain == computationalNodeNumber):
-                nodeHeader = "\n\n Node number [    " + str(nodeId) + "]:     " + str(nodeId)
-                f.write(nodeHeader)
-                for component in range(numberOfDimensions):
-                    componentId = component+1
-                    undeformedValue[component]=geometricField.ParameterSetGetNodeDP(CMISS.FieldVariableTypes.U,
-                                                                                    CMISS.FieldParameterSetTypes.VALUES,
-                                                                                    1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,nodeId,componentId)
-                    nodeComponent = "\n The Xj(" + str(componentId) + ") coordinate is [ 0.00000E+00]: " + str(undeformedValue[component])
-                    f.write(nodeComponent)
-        f.close()
-    except IOError:
-        print ('Could not open ipnode file')
-            
 
 #=================================================================
 # Data Projection on Geometric Field
@@ -533,7 +473,7 @@ if (fixInterior):
             derivList = []
             deriv = 0
             if (abs(geometricValue[0]) < (abs(meshOrigin[0]) - zeroTolerance)) and (abs(geometricValue[1]) < (abs(meshOrigin[1]) - zeroTolerance)) and (abs(geometricValue[2]) < (abs(meshOrigin[2]) - zeroTolerance)):
-                # Interior node
+                # Interior nodes
                 derivList = [1,2,3,4,5,6,7,8]
             # Radial nodes
             elif abs(geometricValue[0]) < zeroTolerance and abs(geometricValue[1]) < zeroTolerance:
@@ -546,12 +486,8 @@ if (fixInterior):
             if deriv > 0 and deriv not in derivList:
                 derivList.append(deriv)
 
-
-            print("BC node " + str(nodeId))
             for globalDeriv in derivList: 
-                print("    deriv " + str(globalDeriv))
                 for component in range(1,numberOfDimensions+1):
-                    print("        component " + str(component))
                     value=geometricField.ParameterSetGetNodeDP(CMISS.FieldVariableTypes.U,
                                                                CMISS.FieldParameterSetTypes.VALUES,
                                                                version,globalDeriv,nodeId,component)
@@ -562,25 +498,21 @@ if (fixInterior):
 solverEquations.BoundaryConditionsCreateFinish()
 
 
+#=================================================================
+# S o l v e    a n d    E x p o r t    D a t a
+#=================================================================
 for iteration in range (1,numberOfIterations+1):
-
-    #=================================================================
-    # Solve 
-    #=================================================================
 
     # Solve the problem
     print("Solving fitting problem, iteration: " + str(iteration))
-
     problem.Solve()
 
-    #=================================================================
-    # Copy dependent field to geometric & Export fields
-    #=================================================================
+    # Copy dependent field to geometric 
     for component in range(1,numberOfDimensions+1):
         dependentField.ParametersToFieldParametersComponentCopy(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,component,geometricField,CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,component)
 
+    # Export fields
     print("Writing deformed geometry")
-    # Export mesh geometry
     fields = CMISS.Fields()
     fields.CreateRegion(region)
     fields.NodesExport("DeformedGeometry" + str(iteration),"FORTRAN")
