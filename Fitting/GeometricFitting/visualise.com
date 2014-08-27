@@ -1,6 +1,11 @@
 gfx read node UndeformedGeometry.part0.exnode time 0
 gfx read node DeformedGeometry1.part0.exnode time 1
+gfx read node DeformedGeometry2.part0.exnode time 2
+gfx read node DeformedGeometry3.part0.exnode time 3
+gfx read node DeformedGeometry4.part0.exnode time 4
+gfx read node DeformedGeometry5.part0.exnode time 5
 gfx read elem UndeformedGeometry.part0.exelem
+
 gfx def faces egroup FittingRegion
 gfx modify g_element "/" lines coordinate Coordinate tessellation default LOCAL native_discretization NONE select_on material default selected_material default_selected;
 gfx modify g_element "/" surfaces coordinate Coordinate exterior tessellation default LOCAL native_discretization NONE select_on material muscle selected_material default_selected render_shaded;

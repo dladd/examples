@@ -84,6 +84,28 @@ def writeExdataFile(filename,dataPointLocations):
             
     except IOError:
         print ('Could not open file: ' + filename)
+
+def writeIpdataFile(filename,dataPointLocations):
+    "Writes 3D data points to an ipdata file"
+
+    try:
+        f = open(filename,"w")    
+        header = 'cube\n'
+        f.write(header)
+
+        numberOfDataPoints = len(dataPointLocations)
+        for i in range(numberOfDataPoints):
+            line = str(i+1)
+            for j in range (3):
+                line += ' ' + str(dataPointLocations[i,j])
+            for j in range (3):
+                line += ' 1.0'
+            line += '\n'
+            f.write(line)
+        f.close()
+            
+    except IOError:
+        print ('Could not open file: ' + filename)
         
 
 #=================================================================
@@ -92,9 +114,9 @@ def writeExdataFile(filename,dataPointLocations):
 
 # Set generated mesh grid dimensions
 numberOfDimensions = 3
-height = 1.0
-width = 1.0
-length = 1.0
+height = 1.25
+width = 1.25
+length = 1.25
 meshDimensions=[height,width,length]
 meshOrigin=[-height/2.0,-width/2.0,-length/2.0]
 meshResolution = [2,2,2]
@@ -107,22 +129,22 @@ origin = [0.,0.,0.]
 # fix interior nodes so that fitting only applies to surface
 fixInterior = True
 
-# analyse fitting error against the analytic solution
-analyticAnalysis = False
+numberOfIterations = 5
 
 iteration = 1
 if iteration > 1:
     exfileMesh = True
     exnode = exfile.Exnode("DeformedGeometry" + str(iteration-1) + ".part0.exnode")
-    exelem = exfile.Exelem("DeformedGeometry" + str(iteration-1) + ".part0.exelem")
+#    exelem = exfile.Exelem("DeformedGeometry" + str(iteration-1) + ".part0.exelem")
+    exelem = exfile.Exelem("UndeformedGeometry.part0.exelem")
 else:
     exfileMesh = False
 
 # Set sobelov smoothing parameters
-tau = 0.0
-kappa = 0.0
+tau = 0.01
+kappa = 0.01
 
-numberOfGaussXi = 3
+numberOfGaussXi = 4
 zeroTolerance = 0.00001
 
 #=================================================================
@@ -194,6 +216,7 @@ dataPoints.CreateFinish()
 
 print("Writing data points file")
 writeExdataFile("DataPoints.exdata",dataPointLocations)
+#writeIpdataFile("cube.ipdata",dataPointLocations)
 
 #=================================================================
 # Mesh
@@ -208,13 +231,13 @@ basis = CMISS.Basis()
 basis.CreateStart(basisUserNumber)
 basis.type = CMISS.BasisTypes.LAGRANGE_HERMITE_TP
 basis.numberOfXi = numberOfDimensions
-#basis.interpolationXi = [CMISS.BasisInterpolationSpecifications.CUBIC_HERMITE]*numberOfDimensions
-basis.interpolationXi = [CMISS.BasisInterpolationSpecifications.QUADRATIC_LAGRANGE]*numberOfDimensions
+basis.interpolationXi = [CMISS.BasisInterpolationSpecifications.CUBIC_HERMITE]*numberOfDimensions
 
 basis.quadratureNumberOfGaussXi = [numberOfGaussXi]*numberOfDimensions
 basis.CreateFinish()
 
 if (exfileMesh):
+    # Read previous mesh
     mesh = CMISS.Mesh()
     mesh.CreateStart(meshUserNumber, region, numberOfDimensions)
     mesh.NumberOfComponentsSet(1)
@@ -262,7 +285,13 @@ geometricField.CreateStart(geometricFieldUserNumber,region)
 geometricField.meshDecomposition = decomposition
 for dimension in range(numberOfDimensions):
     geometricField.ComponentMeshComponentSet(CMISS.FieldVariableTypes.U,dimension+1,1)
+geometricField.ScalingTypeSet(CMISS.FieldScalingTypes.UNIT)
 geometricField.CreateFinish()
+
+# Get nodes
+nodes = CMISS.Nodes()
+region.NodesGet(nodes)
+numberOfNodes = nodes.numberOfNodes
 
 # Get or calculate geometric parameters
 if (exfileMesh):
@@ -291,6 +320,43 @@ else:
     fields.NodesExport("UndeformedGeometry","FORTRAN")
     fields.ElementsExport("UndeformedGeometry","FORTRAN")
     fields.Finalise()
+
+writeIpnode = True
+if (writeIpnode):
+    meshComponent = decomposition.MeshComponentGet()
+    try:
+        f = open("cube.ipnode","w")    
+        header = ''' CMISS Version 1.21 ipnode File Version 2
+ Heading: 27 nodes in a cube
+ 
+ The number of nodes is [    1]:     27
+ Number of coordinates [3]: 3
+ Do you want prompting for different versions of nj=1 [N]? N
+ Do you want prompting for different versions of nj=2 [N]? N
+ Do you want prompting for different versions of nj=3 [N]? N
+ The number of derivatives for coordinate 1 is [0]: 0
+ The number of derivatives for coordinate 2 is [0]: 0
+ The number of derivatives for coordinate 3 is [0]: 0'''
+        f.write(header)
+
+        undeformedValue = numpy.zeros((numberOfDimensions))
+        for node in range(numberOfNodes):
+            nodeId = node + 1
+            nodeDomain = decomposition.NodeDomainGet(nodeId,meshComponent)
+            if (nodeDomain == computationalNodeNumber):
+                nodeHeader = "\n\n Node number [    " + str(nodeId) + "]:     " + str(nodeId)
+                f.write(nodeHeader)
+                for component in range(numberOfDimensions):
+                    componentId = component+1
+                    undeformedValue[component]=geometricField.ParameterSetGetNodeDP(CMISS.FieldVariableTypes.U,
+                                                                                    CMISS.FieldParameterSetTypes.VALUES,
+                                                                                    1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,nodeId,componentId)
+                    nodeComponent = "\n The Xj(" + str(componentId) + ") coordinate is [ 0.00000E+00]: " + str(undeformedValue[component])
+                    f.write(nodeComponent)
+        f.close()
+    except IOError:
+        print ('Could not open ipnode file')
+            
 
 #=================================================================
 # Data Projection on Geometric Field
@@ -326,13 +392,6 @@ equationsSet.CreateStart(equationsSetUserNumber,region,geometricField,
 equationsSet.CreateFinish()
 
 #=================================================================
-# Nodes
-#=================================================================
-nodes = CMISS.Nodes()
-region.NodesGet(nodes)
-numberOfNodes = nodes.numberOfNodes
-
-#=================================================================
 # Dependent Field
 #=================================================================
 
@@ -340,21 +399,16 @@ numberOfNodes = nodes.numberOfNodes
 dependentField = CMISS.Field()
 equationsSet.DependentCreateStart(dependentFieldUserNumber,dependentField)
 dependentField.VariableLabelSet(CMISS.FieldVariableTypes.U,"Dependent")
+dependentField.ScalingTypeSet(CMISS.FieldScalingTypes.UNIT)
 equationsSet.DependentCreateFinish()
 # Initialise dependent field
 dependentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,1,0.0)
 
-# #=================================================================
-# # Analytic Field
-# #=================================================================
-
-# # Create analytic field (mainly used for output- to comparewill be deformed fitted values based on data point locations)
-# analyticField = CMISS.Field()
-# equationsSet.AnalyticCreateStart(CMISS.EquationsSetLaplaceAnalyticFunctionTypes.THREE_DIM_1,analyticFieldUserNumber,analyticField)
-# analyticField.VariableLabelSet(CMISS.FieldVariableTypes.U,"Analytic")
-# equationsSet.AnalyticCreateFinish()
-# # Initialise analytic field
-# analyticField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,1,0.0)
+# Initialise dependent field to undeformed geometric field
+for component in range (1,numberOfDimensions+1):
+    geometricField.ParametersToFieldParametersComponentCopy(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,
+                                                            component, dependentField, CMISS.FieldVariableTypes.U,
+                                                            CMISS.FieldParameterSetTypes.VALUES, component)
 
 #=================================================================
 # Independent Field
@@ -434,10 +488,11 @@ problem.ControlLoopCreateFinish()
 solver = CMISS.Solver()
 problem.SolversCreateStart()
 problem.SolverGet([CMISS.ControlLoopIdentifiers.NODE],1,solver)
-solver.outputType = CMISS.SolverOutputTypes.SOLVER
+solver.outputType = CMISS.SolverOutputTypes.NONE # NONE
 solver.linearType = CMISS.LinearSolverTypes.ITERATIVE
+solver.LibraryTypeSet(CMISS.SolverLibraries.UMFPACK) # UMFPACK/SUPERLU
 solver.linearIterativeAbsoluteTolerance = 1.0E-10
-solver.linearIterativeRelativeTolerance = 1.0E-10
+solver.linearIterativeRelativeTolerance = 1.0E-05
 problem.SolversCreateFinish()
 
 # Create solver equations and add equations set to solver equations
@@ -459,8 +514,6 @@ boundaryConditions = CMISS.BoundaryConditions()
 solverEquations.BoundaryConditionsCreateStart(boundaryConditions)
 
 version = 1
-surfaceNodeList = []
-interiorList = []
 meshComponent = decomposition.MeshComponentGet()
 # Fix the interior nodes- use to only apply fit to surface nodes
 if (fixInterior):
@@ -469,143 +522,70 @@ if (fixInterior):
         nodeId = node + 1
         nodeDomain = decomposition.NodeDomainGet(nodeId,meshComponent)
         if (nodeDomain == computationalNodeNumber):
+            geometricValue = numpy.zeros((numberOfDimensions))
             for component in range(numberOfDimensions):
                 componentId = component+1
-                geometricValue=geometricField.ParameterSetGetNodeDP(CMISS.FieldVariableTypes.U,
-                                                                    CMISS.FieldParameterSetTypes.VALUES,
-                                                                    1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
-                                                                    nodeId,componentId)
-                if (geometricValue < meshOrigin[component] + zeroTolerance or
-                    geometricValue > meshOrigin[component] + meshDimensions[component] - zeroTolerance):
-                    surfaceNodeList.append(nodeId)
-                    break
+                geometricValue[component]=geometricField.ParameterSetGetNodeDP(CMISS.FieldVariableTypes.U,
+                                                                               CMISS.FieldParameterSetTypes.VALUES,
+                                                                               1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
+                                                                               nodeId,componentId)
 
-    # set fixed conditions on interior nodes
-#    print(boundaryNodeList)
-    for nodeId in range(1,numberOfNodes+1):
-        nodeDomain = decomposition.NodeDomainGet(nodeId,meshComponent)
-        if (nodeDomain == computationalNodeNumber):
-            if nodeId not in surfaceNodeList:
-                interiorList.append(nodeId)
-                for component in range(numberOfDimensions):
-                    componentId = component+1
-                    geometricValue=geometricField.ParameterSetGetNodeDP(CMISS.FieldVariableTypes.U,
-                                                                        CMISS.FieldParameterSetTypes.VALUES,
-                                                                        1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
-                                                                        nodeId,componentId)
-                    value = geometricValue
+            derivList = []
+            deriv = 0
+            if (abs(geometricValue[0]) < (abs(meshOrigin[0]) - zeroTolerance)) and (abs(geometricValue[1]) < (abs(meshOrigin[1]) - zeroTolerance)) and (abs(geometricValue[2]) < (abs(meshOrigin[2]) - zeroTolerance)):
+                # Interior node
+                derivList = [1,2,3,4,5,6,7,8]
+            # Radial nodes
+            elif abs(geometricValue[0]) < zeroTolerance and abs(geometricValue[1]) < zeroTolerance:
+                deriv = 5
+            elif abs(geometricValue[1]) < zeroTolerance and abs(geometricValue[2]) < zeroTolerance:
+                deriv = 2
+            elif abs(geometricValue[0]) < zeroTolerance and abs(geometricValue[2]) < zeroTolerance:
+                deriv = 3
+
+            if deriv > 0 and deriv not in derivList:
+                derivList.append(deriv)
+
+
+            print("BC node " + str(nodeId))
+            for globalDeriv in derivList: 
+                print("    deriv " + str(globalDeriv))
+                for component in range(1,numberOfDimensions+1):
+                    print("        component " + str(component))
+                    value=geometricField.ParameterSetGetNodeDP(CMISS.FieldVariableTypes.U,
+                                                               CMISS.FieldParameterSetTypes.VALUES,
+                                                               version,globalDeriv,nodeId,component)
                     boundaryConditions.SetNode(dependentField,CMISS.FieldVariableTypes.U,
-                                               version,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
-                                               nodeId,componentId,
+                                               version,globalDeriv,nodeId,component,
                                                CMISS.BoundaryConditionsTypes.FIXED,value)
 
-#print(interiorList)
 solverEquations.BoundaryConditionsCreateFinish()
 
-#=================================================================
-# Solve 
-#=================================================================
 
-# Solve the problem
-print("Solving fitting problem...")
-problem.Solve()
+for iteration in range (1,numberOfIterations+1):
 
-#=================================================================
-# Calculate error
-#=================================================================
+    #=================================================================
+    # Solve 
+    #=================================================================
 
-if (analyticAnalysis):
-    # Error will be distance from sphere surface
-    #-----------------------------------------------------------
-    value = 0.0
-    dependentField.ParameterSetCreate(CMISS.FieldVariableTypes.U,
-                                      CMISS.FieldParameterSetTypes.ANALYTIC_VALUES)
-    dependentField.ParameterSetCreate(CMISS.FieldVariableTypes.DELUDELN,
-                                      CMISS.FieldParameterSetTypes.ANALYTIC_VALUES)
-    dependentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,
-                                              CMISS.FieldParameterSetTypes.ANALYTIC_VALUES,
-                                              1,value)
-    dependentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.DELUDELN,
-                                              CMISS.FieldParameterSetTypes.ANALYTIC_VALUES,
-                                              1,value)
+    # Solve the problem
+    print("Solving fitting problem, iteration: " + str(iteration))
 
-    undeformedValue = numpy.zeros((numberOfDimensions))
-    deformedValue = numpy.zeros((numberOfDimensions))
-    distFromOrigin = numpy.zeros((numberOfDimensions))
-    #set projected analytic values
-    for node in range(numberOfNodes):
-        nodeId = node + 1
-        nodeDomain = decomposition.NodeDomainGet(nodeId,meshComponent)
-        if (nodeDomain == computationalNodeNumber):
-            for component in range(numberOfDimensions):
-                componentId = component+1
-                undeformedValue[component]=geometricField.ParameterSetGetNodeDP(CMISS.FieldVariableTypes.U,
-                                                                               CMISS.FieldParameterSetTypes.VALUES,
-                                                                               1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,nodeId,componentId)
-                deformedValue[component]=dependentField.ParameterSetGetNodeDP(CMISS.FieldVariableTypes.U,
-                                                                              CMISS.FieldParameterSetTypes.VALUES,
-                                                                              1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,nodeId,componentId)
-                distFromOrigin[component] = origin[component] - deformedValue[component] 
+    problem.Solve()
 
-            # calc nearest point on the sphere
-            for component in range(numberOfDimensions):
-                value = radius*(distFromOrigin[component])/numpy.linalg.norm(distFromOrigin)
-                if (fixInterior and nodeId not in surfaceNodeList):
-                    value = undeformedValue[component]
+    #=================================================================
+    # Copy dependent field to geometric & Export fields
+    #=================================================================
+    for component in range(1,numberOfDimensions+1):
+        dependentField.ParametersToFieldParametersComponentCopy(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,component,geometricField,CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,component)
 
-                # Set analytic values 
-                dependentField.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,
-                                                        CMISS.FieldParameterSetTypes.ANALYTIC_VALUES,
-                                                        1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
-                                                        nodeId,componentId,value)            
-                # analyticField.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,
-                #                                        CMISS.FieldParameterSetTypes.VALUES,
-                #                                        1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
-                #                                        nodeId,componentId,value)            
-
-
-#=================================================================
-# Copy dependent field to geometric
-#=================================================================
-for component in range(1,numberOfDimensions+1):
-    dependentField.ParametersToFieldParametersComponentCopy(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,component,geometricField,CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,component)
-
-print("Writing deformed geometry")
-# Export mesh geometry
-fields = CMISS.Fields()
-fields.CreateRegion(region)
-fields.NodesExport("DeformedGeometry" + str(iteration),"FORTRAN")
-fields.ElementsExport("DeformedGeometry" + str(iteration),"FORTRAN")
-fields.Finalise()
-
-#=================================================================
-# Export results
-#=================================================================
-
-print("Fitting complete- exporting results")
-
-if (analyticAnalysis):
-    print("Exporting analytic analysis")
-    analysisFile = "mesh" + str(meshResolution[0]) + "x" + str(meshResolution[1]) + "x" + str(meshResolution[2]) + "Data" + str(numberOfDataPoints) + "Tau" + str(tau) + "Kappa" + str(kappa)
-
-    CMISS.AnalyticAnalysisOutput(dependentField,analysisFile)
-    AbsError = numpy.zeros((numberOfNodes,numberOfDimensions))
-    ErrorMag = numpy.zeros((numberOfNodes))
-    for node in range(numberOfNodes):
-        nodeId = node + 1
-        nodeDomain = decomposition.NodeDomainGet(nodeId,meshComponent)
-        if (nodeDomain == computationalNodeNumber):
-            for component in range(numberOfDimensions):
-                componentId = component+1
-                AbsError[node,component]=CMISS.AnalyticAnalysisAbsoluteErrorGetNode(dependentField,CMISS.FieldVariableTypes.U,1,
-                                                                                    CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
-                                                                                    nodeId,componentId)
-            ErrorMag[node] = linalg.norm(AbsError[node,:])
-
-    RMSError = numpy.sqrt(numpy.mean(ErrorMag**2))
-
-    print("Error: ")
-    print(RMSError)
+    print("Writing deformed geometry")
+    # Export mesh geometry
+    fields = CMISS.Fields()
+    fields.CreateRegion(region)
+    fields.NodesExport("DeformedGeometry" + str(iteration),"FORTRAN")
+    fields.ElementsExport("DeformedGeometry" + str(iteration),"FORTRAN")
+    fields.Finalise()
 
 #-----------------------------------------------------------------
 
