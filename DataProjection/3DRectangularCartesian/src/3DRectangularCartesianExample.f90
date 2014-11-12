@@ -126,73 +126,73 @@ PROGRAM DataProjection3DRectangularCartesian
   
   !Intialise 8 nodes for the element
   FieldValues(1,1,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !no der, node 1
-  FieldValues(2,1,:)=(/1.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 der, node 1
-  FieldValues(3,1,:)=(/0.0_CMISSDP,1.0_CMISSDP,0.0_CMISSDP/) !s2 der, node 1  
+  FieldValues(2,1,:)=(/2.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 der, node 1
+  FieldValues(3,1,:)=(/0.0_CMISSDP,2.0_CMISSDP,0.0_CMISSDP/) !s2 der, node 1  
   FieldValues(4,1,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 der, node 1    
-  FieldValues(5,1,:)=(/0.0_CMISSDP,0.0_CMISSDP,1.0_CMISSDP/) !s3 der, node 1
+  FieldValues(5,1,:)=(/0.0_CMISSDP,0.0_CMISSDP,2.0_CMISSDP/) !s3 der, node 1
   FieldValues(6,1,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s3 der, node 1  
   FieldValues(7,1,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s2 s3 der, node 1    
   FieldValues(8,1,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 s3 der, node 1    
   
-  FieldValues(1,2,:)=(/1.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !no der, node 2
-  FieldValues(2,2,:)=(/1.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 der, node 2
-  FieldValues(3,2,:)=(/0.0_CMISSDP,1.0_CMISSDP,0.0_CMISSDP/) !s2 der, node 2  
+  FieldValues(1,2,:)=(/2.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !no der, node 2
+  FieldValues(2,2,:)=(/2.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 der, node 2
+  FieldValues(3,2,:)=(/0.0_CMISSDP,2.0_CMISSDP,0.0_CMISSDP/) !s2 der, node 2  
   FieldValues(4,2,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 der, node 2    
-  FieldValues(5,2,:)=(/0.0_CMISSDP,0.0_CMISSDP,1.0_CMISSDP/) !s3 der, node 2
+  FieldValues(5,2,:)=(/0.0_CMISSDP,0.0_CMISSDP,2.0_CMISSDP/) !s3 der, node 2
   FieldValues(6,2,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s3 der, node 2  
   FieldValues(7,2,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s2 s3 der, node 2    
   FieldValues(8,2,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 s3 der, node 2     
   
-  FieldValues(1,3,:)=(/0.0_CMISSDP,1.0_CMISSDP,0.0_CMISSDP/) !no der, node 3
-  FieldValues(2,3,:)=(/1.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 der, node 3
-  FieldValues(3,3,:)=(/0.0_CMISSDP,1.0_CMISSDP,0.0_CMISSDP/) !s2 der, node 3  
+  FieldValues(1,3,:)=(/0.0_CMISSDP,2.0_CMISSDP,0.0_CMISSDP/) !no der, node 3
+  FieldValues(2,3,:)=(/2.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 der, node 3
+  FieldValues(3,3,:)=(/0.0_CMISSDP,2.0_CMISSDP,0.0_CMISSDP/) !s2 der, node 3  
   FieldValues(4,3,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 der, node 3    
-  FieldValues(5,3,:)=(/0.0_CMISSDP,0.0_CMISSDP,1.0_CMISSDP/) !s3 der, node 3
+  FieldValues(5,3,:)=(/0.0_CMISSDP,0.0_CMISSDP,2.0_CMISSDP/) !s3 der, node 3
   FieldValues(6,3,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s3 der, node 3  
   FieldValues(7,3,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s2 s3 der, node 3    
   FieldValues(8,3,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 s3 der, node 3
   
-  FieldValues(1,4,:)=(/1.0_CMISSDP,1.0_CMISSDP,0.0_CMISSDP/) !no der, node 4
-  FieldValues(2,4,:)=(/1.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 der, node 4
-  FieldValues(3,4,:)=(/0.0_CMISSDP,1.0_CMISSDP,0.0_CMISSDP/) !s2 der, node 4  
+  FieldValues(1,4,:)=(/2.0_CMISSDP,2.0_CMISSDP,0.0_CMISSDP/) !no der, node 4
+  FieldValues(2,4,:)=(/2.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 der, node 4
+  FieldValues(3,4,:)=(/0.0_CMISSDP,2.0_CMISSDP,0.0_CMISSDP/) !s2 der, node 4  
   FieldValues(4,4,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 der, node 4    
-  FieldValues(5,4,:)=(/0.0_CMISSDP,0.0_CMISSDP,1.0_CMISSDP/) !s3 der, node 4
+  FieldValues(5,4,:)=(/0.0_CMISSDP,0.0_CMISSDP,2.0_CMISSDP/) !s3 der, node 4
   FieldValues(6,4,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s3 der, node 4  
   FieldValues(7,4,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s2 s3 der, node 4    
   FieldValues(8,4,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 s3 der, node 4
   
-  FieldValues(1,5,:)=(/0.0_CMISSDP,0.0_CMISSDP,1.0_CMISSDP/) !no der, node 5
-  FieldValues(2,5,:)=(/1.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 der, node 5
-  FieldValues(3,5,:)=(/0.0_CMISSDP,1.0_CMISSDP,0.0_CMISSDP/) !s2 der, node 5  
+  FieldValues(1,5,:)=(/0.0_CMISSDP,0.0_CMISSDP,2.0_CMISSDP/) !no der, node 5
+  FieldValues(2,5,:)=(/2.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 der, node 5
+  FieldValues(3,5,:)=(/0.0_CMISSDP,2.0_CMISSDP,0.0_CMISSDP/) !s2 der, node 5  
   FieldValues(4,5,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 der, node 5    
-  FieldValues(5,5,:)=(/0.0_CMISSDP,0.0_CMISSDP,1.0_CMISSDP/) !s3 der, node 5
+  FieldValues(5,5,:)=(/0.0_CMISSDP,0.0_CMISSDP,2.0_CMISSDP/) !s3 der, node 5
   FieldValues(6,5,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s3 der, node 5  
   FieldValues(7,5,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s2 s3 der, node 5    
   FieldValues(8,5,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 s3 der, node 5    
   
-  FieldValues(1,6,:)=(/1.0_CMISSDP,0.0_CMISSDP,1.0_CMISSDP/) !no der, node 6
-  FieldValues(2,6,:)=(/1.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 der, node 6
-  FieldValues(3,6,:)=(/0.0_CMISSDP,1.0_CMISSDP,0.0_CMISSDP/) !s2 der, node 6  
+  FieldValues(1,6,:)=(/2.0_CMISSDP,0.0_CMISSDP,2.0_CMISSDP/) !no der, node 6
+  FieldValues(2,6,:)=(/2.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 der, node 6
+  FieldValues(3,6,:)=(/0.0_CMISSDP,2.0_CMISSDP,0.0_CMISSDP/) !s2 der, node 6  
   FieldValues(4,6,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 der, node 6    
-  FieldValues(5,6,:)=(/0.0_CMISSDP,0.0_CMISSDP,1.0_CMISSDP/) !s3 der, node 6
+  FieldValues(5,6,:)=(/0.0_CMISSDP,0.0_CMISSDP,2.0_CMISSDP/) !s3 der, node 6
   FieldValues(6,6,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s3 der, node 6  
   FieldValues(7,6,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s2 s3 der, node 6    
   FieldValues(8,6,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 s3 der, node 6     
   
-  FieldValues(1,7,:)=(/0.0_CMISSDP,1.0_CMISSDP,1.0_CMISSDP/) !no der, node 7
-  FieldValues(2,7,:)=(/1.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 der, node 7
-  FieldValues(3,7,:)=(/0.0_CMISSDP,1.0_CMISSDP,0.0_CMISSDP/) !s2 der, node 7  
+  FieldValues(1,7,:)=(/0.0_CMISSDP,2.0_CMISSDP,2.0_CMISSDP/) !no der, node 7
+  FieldValues(2,7,:)=(/2.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 der, node 7
+  FieldValues(3,7,:)=(/0.0_CMISSDP,2.0_CMISSDP,0.0_CMISSDP/) !s2 der, node 7  
   FieldValues(4,7,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 der, node 7    
-  FieldValues(5,7,:)=(/0.0_CMISSDP,0.0_CMISSDP,1.0_CMISSDP/) !s3 der, node 7
+  FieldValues(5,7,:)=(/0.0_CMISSDP,0.0_CMISSDP,2.0_CMISSDP/) !s3 der, node 7
   FieldValues(6,7,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s3 der, node 7  
   FieldValues(7,7,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s2 s3 der, node 7    
   FieldValues(8,7,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 s3 der, node 7
   
-  FieldValues(1,8,:)=(/1.0_CMISSDP,1.0_CMISSDP,1.0_CMISSDP/) !no der, node 8
-  FieldValues(2,8,:)=(/1.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 der, node 8
-  FieldValues(3,8,:)=(/0.0_CMISSDP,1.0_CMISSDP,0.0_CMISSDP/) !s2 der, node 8  
+  FieldValues(1,8,:)=(/2.0_CMISSDP,2.0_CMISSDP,2.0_CMISSDP/) !no der, node 8
+  FieldValues(2,8,:)=(/2.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 der, node 8
+  FieldValues(3,8,:)=(/0.0_CMISSDP,2.0_CMISSDP,0.0_CMISSDP/) !s2 der, node 8  
   FieldValues(4,8,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 der, node 8    
-  FieldValues(5,8,:)=(/0.0_CMISSDP,0.0_CMISSDP,1.0_CMISSDP/) !s3 der, node 8
+  FieldValues(5,8,:)=(/0.0_CMISSDP,0.0_CMISSDP,2.0_CMISSDP/) !s3 der, node 8
   FieldValues(6,8,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s3 der, node 8  
   FieldValues(7,8,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s2 s3 der, node 8    
   FieldValues(8,8,:)=(/0.0_CMISSDP,0.0_CMISSDP,0.0_CMISSDP/) !s1 s2 s3 der, node 8
@@ -301,6 +301,7 @@ PROGRAM DataProjection3DRectangularCartesian
       & DataPointProjectionExitTag(data_point_idx),Err)
     CALL CMISSDataProjection_ResultXiGet(RegionUserNumber,DataProjectionUserNumber,data_point_idx, &
       & DataPointProjectionXi(data_point_idx,:),Err)
+     WRITE(*,*) "    Projection Xi: ", DataPointProjectionXi(data_point_idx,:)
   ENDDO  
   
   !=========================================================================================================================
