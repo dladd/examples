@@ -2,7 +2,7 @@
 
 #> \file
 #> \author David Ladd
-#> \brief This is an example to fit a generated cube mesh to a sphere.
+#> \brief This is an example to use linear fitting to fit a generated cube mesh surface to a sphere.
 #>
 #> \section LICENSE
 #>
@@ -94,12 +94,12 @@ def writeExdataFile(filename,dataPointLocations,offset):
 #=================================================================
 
 #-----------------------------------------------------------------------------------------------
-# ***NOTE: running this in debug mode with FPE detection incurs large performance overheads.
-#          Suggest using optimized version of the library if possible.
+# ***NOTE: running this in debug mode with FPE detection can incur large performance overheads.
+#          Suggest using an optimized version of the library if possible.
 #-----------------------------------------------------------------------------------------------
 
 # Set cube dimensions
-numberOfDimensions = 2
+numberOfDimensions = 3
 length = 1.25
 meshDimensions = []
 meshOrigin = []
@@ -108,11 +108,11 @@ for d in range(numberOfDimensions):
     meshOrigin.append(-length/2.0)
 
 # Set cube generated mesh resolution/type
-meshResolution = [2]*numberOfDimensions
+meshResolution = [3]*numberOfDimensions
 hermite = False
 
-# Set data point resolution
-numberOfDataPoints = 20
+# Set data point resolution (will be randomly placed on surface of a sphere)
+numberOfDataPoints = 1000
 radius = 1.0
 origin = [0.,0.,0.]
 
@@ -121,7 +121,8 @@ fixInterior = True
 
 # iteratively fit the cube to sphere- default 1 for automated testing
 numberOfIterations = 1
-# change to start from a previous iteration
+
+# If start iteration > 1, read in geometry from a previous fit iteration
 iteration = 1
 if iteration > 1:
     exfileMesh = True
@@ -130,9 +131,9 @@ if iteration > 1:
 else:
     exfileMesh = False
 
-# Set sobelov smoothing parameters
-tau = 0.0
-kappa = 0.0
+# Set Sobolev smoothing parameters
+tau = 0.5
+kappa = 0.1
 
 numberOfGaussXi = numberOfDimensions
 zeroTolerance = 0.00001
@@ -156,9 +157,6 @@ zeroTolerance = 0.00001
     dataProjectionUserNumber,
     equationsSetUserNumber,
     problemUserNumber) = range(1,18)
-
-# Diagnostics
-#CMISS.DiagnosticsSetOn(CMISS.DiagnosticTypes.IN,[1,2,3,4,5],"Diagnostics",["DOMAIN_MAPPINGS_LOCAL_FROM_GLOBAL_CALCULATE"])
 
 # Get the computational nodes information
 numberOfComputationalNodes = CMISS.ComputationalNumberOfNodesGet()
@@ -234,7 +232,6 @@ decomposition = CMISS.Decomposition()
 decomposition.CreateStart(decompositionUserNumber,mesh)
 decomposition.type = CMISS.DecompositionTypes.CALCULATED
 decomposition.numberOfDomains = numberOfComputationalNodes
-#decomposition.CalculateFacesSet(True)
 decomposition.CreateFinish()
 
 #=================================================================
@@ -287,7 +284,7 @@ else:
 # Data Points
 #=================================================================
 
-# Create the data points on first domain only (will be shared during projection)
+# Create the data points
 dataPoints = CMISS.DataPoints()
 dataPoints.CreateStart(region,numberOfDataPoints)
 
@@ -295,7 +292,7 @@ localNumberOfDataPoints = 0
 dataPointLocations = numpy.zeros((numberOfDataPoints,numberOfDimensions))
 print("Number of data points: " + str(numberOfDataPoints))
 
-# Calculate locations of points on a sphere
+# Calculate data point locations of points on a sphere
 random.seed(1)
 for i in range(numberOfDataPoints):
     if numberOfDimensions == 3:
@@ -319,6 +316,7 @@ for dataPoint in range(numberOfDataPoints):
 
 dataPoints.CreateFinish()
 
+# write data points to exdata file for CMGUI
 offset = 0
 writeExdataFile("DataPoints.part"+str(computationalNodeNumber)+".exdata",dataPointLocations,offset)
 
@@ -341,39 +339,34 @@ mesh.TopologyDataPointsCalculateProjection(dataProjection)
 decomposition.TopologyDataProjectionCalculate()
 print("Projection complete")
 
-print("Writing data points file(s)")
-numberOfLocalDataPoints = 0
-localDataPointLocations = []
-localDataPoints = []
-elementDataPoints = numpy.zeros((numberOfElements,numberOfDataPoints,numberOfDimensions))
-for element in range(1,numberOfElements+1):
-    elementDomain = decomposition.ElementDomainGet(element)
-    if (elementDomain == computationalNodeNumber):
-        numberOfProjectedDataPoints = decomposition.TopologyNumberOfElementDataPointsGet(element)
-#        print('number of data points elem ' +str(element)+' : '+str(numberOfProjectedDataPoints))
-        for dataPoint in range(1,numberOfProjectedDataPoints+1):
-            dataList = numpy.zeros((numberOfDimensions))
-            dataPointNumber = decomposition.TopologyElementDataPointUserNumberGet(element,dataPoint)
-            dataList = dataPoints.ValuesGet(dataPointNumber,numberOfDimensions)
-#            print('data point #' +str(dataPointNumber)+ ' : ' + str(dataList))
-            numberOfLocalDataPoints += 1
-            localDataPointLocations.append(dataList)
-            localDataPoints.append(dataPointNumber)
-            elementDataPoints[element-1,dataPoint-1,:] = dataList
-
-
-#print('number of local datapoints: '+str(numberOfLocalDataPoints))
-localDataPointLocations = numpy.array((localDataPointLocations))
-xi = numpy.zeros((numberOfDimensions))
-for d in range(numberOfLocalDataPoints):
-    localDataPointLocations[d,:] = localDataPointLocations[d]
-    # print('Data point: ' + str(localDataPoints[d]))
-    # elementNumber = dataProjection.ResultElementNumberGet(localDataPoints[d])
-    # print('    ElementNumber: ' + str(elementNumber))
-    # xi = dataProjection.ResultXiGet(localDataPoints[d],numberOfDimensions)
-    # print('    Xi: ' + str(xi))
-    # distance = dataProjection.ResultDistanceGet(localDataPoints[d])
-    # print('    Distance: ' + str(distance))
+# # MPI DEBUG: Check data point info
+# numberOfLocalDataPoints = 0
+# localDataPointLocations = []
+# localDataPoints = []
+# elementDataPoints = numpy.zeros((numberOfElements,numberOfDataPoints,numberOfDimensions))
+# for element in range(1,numberOfElements+1):
+#     elementDomain = decomposition.ElementDomainGet(element)
+#     if (elementDomain == computationalNodeNumber):
+#         numberOfProjectedDataPoints = decomposition.TopologyNumberOfElementDataPointsGet(element)
+#         for dataPoint in range(1,numberOfProjectedDataPoints+1):
+#             dataList = numpy.zeros((numberOfDimensions))
+#             dataPointNumber = decomposition.TopologyElementDataPointUserNumberGet(element,dataPoint)
+#             dataList = dataPoints.ValuesGet(dataPointNumber,numberOfDimensions)
+#             numberOfLocalDataPoints += 1
+#             localDataPointLocations.append(dataList)
+#             localDataPoints.append(dataPointNumber)
+#             elementDataPoints[element-1,dataPoint-1,:] = dataList
+# localDataPointLocations = numpy.array((localDataPointLocations))
+# xi = numpy.zeros((numberOfDimensions))
+# for d in range(numberOfLocalDataPoints):
+#     localDataPointLocations[d,:] = localDataPointLocations[d]
+#     print('Data point: ' + str(localDataPoints[d]))
+#     elementNumber = dataProjection.ResultElementNumberGet(localDataPoints[d])
+#     print('    ElementNumber: ' + str(elementNumber))
+#     xi = dataProjection.ResultXiGet(localDataPoints[d],numberOfDimensions)
+#     print('    Xi: ' + str(xi))
+#     distance = dataProjection.ResultDistanceGet(localDataPoints[d])
+#     print('    Distance: ' + str(distance))
  
 #=================================================================
 # Equations Set
@@ -425,7 +418,6 @@ independentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.Fi
 independentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,1,1.0)
 
 # loop over each element's data points and set independent field values to data point locations on surface of the sphere
-print('\n\n')
 for element in range(numberOfElements):
     elementId = element + 1
     elementDomain = decomposition.ElementDomainGet(elementId)
@@ -435,7 +427,6 @@ for element in range(numberOfElements):
             dataPointId = dataPoint + 1
             dataPointNumber = decomposition.TopologyElementDataPointUserNumberGet(elementId,dataPointId)
             dataList = dataPoints.ValuesGet(dataPointNumber,numberOfDimensions)
-#            print('data point #' +str(dataPointNumber)+ ' : ' + str(dataList))
             # set data point field values
             for component in range(numberOfDimensions):
                 componentId = component + 1
@@ -447,13 +438,13 @@ for element in range(numberOfElements):
 # Material Field
 #=================================================================
 
-# Create material field (sobelov parameters)
+# Create material field (Sobolev parameters)
 materialField = CMISS.Field()
 equationsSet.MaterialsCreateStart(materialFieldUserNumber,materialField)
 materialField.VariableLabelSet(CMISS.FieldVariableTypes.U,"Smoothing Parameters")
 equationsSet.MaterialsCreateFinish()
 
-# Set kappa and tau - Sobelov smoothing parameters
+# Set kappa and tau - Sobolev smoothing parameters
 materialField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,1,tau)
 materialField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,2,kappa)
 
@@ -488,7 +479,7 @@ problem.ControlLoopCreateFinish()
 solver = CMISS.Solver()
 problem.SolversCreateStart()
 problem.SolverGet([CMISS.ControlLoopIdentifiers.NODE],1,solver)
-solver.outputType = CMISS.SolverOutputTypes.MATRIX # NONE / MATRIX
+solver.outputType = CMISS.SolverOutputTypes.NONE # NONE / MATRIX
 solver.linearType = CMISS.LinearSolverTypes.ITERATIVE
 solver.LibraryTypeSet(CMISS.SolverLibraries.UMFPACK) # UMFPACK/SUPERLU
 solver.linearIterativeAbsoluteTolerance = 1.0E-10
@@ -537,7 +528,6 @@ if (fixInterior):
                     if (abs(geometricValue[0]) < (abs(meshOrigin[0]) - zeroTolerance)) and (abs(geometricValue[1]) < (abs(meshOrigin[1]) - zeroTolerance)) and (abs(geometricValue[2]) < (abs(meshOrigin[2]) - zeroTolerance)):
                         # Interior nodes
                         derivList = [1,2,3,4,5,6,7,8]
-                        print('interior node: '+str(nodeId))
                     # Radial nodes
                     elif abs(geometricValue[0]) < zeroTolerance and abs(geometricValue[1]) < zeroTolerance:
                         deriv = 5
@@ -548,13 +538,11 @@ if (fixInterior):
 
                     if deriv > 0 and deriv not in derivList:
                         derivList.append(deriv)
-                        print('radial node: '+str(nodeId))
 
                 elif numberOfDimensions ==2:
                     if (abs(geometricValue[0]) < (abs(meshOrigin[0]) - zeroTolerance)) and (abs(geometricValue[1]) < (abs(meshOrigin[1]) - zeroTolerance)):
                         # Interior nodes
                         derivList = [1,2,3,4]
-                        print('interior node: '+str(nodeId))
                     # Radial nodes
                     elif abs(geometricValue[1]) < zeroTolerance:
                         deriv = 2
@@ -563,16 +551,13 @@ if (fixInterior):
 
                     if deriv > 0 and deriv not in derivList:
                         derivList.append(deriv)
-                        print('radial node: '+str(nodeId))
 
             elif numberOfDimensions == 3:
                 if (abs(geometricValue[0]) < (abs(meshOrigin[0]) - zeroTolerance)) and (abs(geometricValue[1]) < (abs(meshOrigin[1]) - zeroTolerance)) and (abs(geometricValue[2]) < (abs(meshOrigin[2]) - zeroTolerance)):
                     derivList = [1]
-                    print('interior node: '+str(nodeId))
             elif numberOfDimensions == 2:
                 if (abs(geometricValue[0]) < (abs(meshOrigin[0]) - zeroTolerance)) and (abs(geometricValue[1]) < (abs(meshOrigin[1]) - zeroTolerance)):
                     derivList = [1]
-                    print('interior node: '+str(nodeId))
 
             for globalDeriv in derivList: 
                 for component in range(1,numberOfDimensions+1):
