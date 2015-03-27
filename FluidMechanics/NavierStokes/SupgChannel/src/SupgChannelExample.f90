@@ -238,8 +238,8 @@ PROGRAM SupgChannel
   inletNodesFlag=.FALSE.
   !Initialize calc faces
   calculateFacesFlag=.FALSE.
-  !Set material parameters
-  viscosity=0.01_CMISSDP
+  !Set material parameters - use viscosity to control Re (Re = 1/viscosity)
+  viscosity=0.005_CMISSDP
   density=1.0_CMISSDP
 
   !Set output types
@@ -253,10 +253,10 @@ PROGRAM SupgChannel
   !Set dynamic solver parameters
   dynamicSolverStartTime=0.0_CMISSDP
   dynamicSolverStopTime=10.0001_CMISSDP 
-  dynamicSolverTimeIncrement=0.1_CMISSDP
+  dynamicSolverTimeIncrement=0.001_CMISSDP
   dynamicSolverTheta=1.0_CMISSDP
   !Set result output parameter (e.g. 1 for every step, 5 for every 5 steps, etc)
-  dynamicSolverOutputFrequency=10
+  dynamicSolverOutputFrequency=100
   !Set solver parameters
   directLinearSolverFlag=.TRUE.
   relativeTolerance=1.0E-5_CMISSDP !default: 1.0E-05_CMISSDP
@@ -491,6 +491,12 @@ PROGRAM SupgChannel
     & EquationsSetSubtype,EquationsSetFieldUserNumber,EquationsSetField,EquationsSetNavierStokes,Err)
   !Finish creating the equations set
   CALL CMISSEquationsSet_CreateFinish(EquationsSetNavierStokes,Err)
+
+  IF(supgFlag) THEN
+    !Set max CFL number
+    CALL CMISSField_ComponentValuesInitialise(EquationsSetField,CMISS_FIELD_V_VARIABLE_TYPE, &
+      & CMISS_FIELD_VALUES_SET_TYPE,2,1.0_CMISSDP,Err)
+  ENDIF
 
   !
   !================================================================================================================================
