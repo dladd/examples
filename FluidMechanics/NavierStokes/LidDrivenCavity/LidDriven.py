@@ -54,6 +54,7 @@ sys.path.append(os.sep.join((os.environ['OPENCMISS_ROOT'],'cm','bindings','pytho
 import numpy
 import gzip
 import time
+import exfile
 
 # Intialise OpenCMISS
 from opencmiss import CMISS
@@ -74,7 +75,8 @@ computationalNodeNumber = CMISS.ComputationalNodeNumberGet()
  dependentFieldUserNumber,
  materialsFieldUserNumber,
  equationsSetUserNumber,
- problemUserNumber) = range(1,14)
+ analyticFieldUserNumber,
+ problemUserNumber) = range(1,15)
 
 # Creation a RC coordinate system
 coordinateSystem = CMISS.CoordinateSystem()
@@ -95,7 +97,7 @@ quadraticBasis.CreateStart(quadraticBasisUserNumber)
 quadraticBasis.type = CMISS.BasisTypes.LAGRANGE_HERMITE_TP
 quadraticBasis.numberOfXi = 2
 quadraticBasis.interpolationXi = [CMISS.BasisInterpolationSpecifications.QUADRATIC_LAGRANGE]*2
-quadraticBasis.quadratureNumberOfGaussXi = [2]*2
+quadraticBasis.quadratureNumberOfGaussXi = [3]*2
 quadraticBasis.CreateFinish()
 
 # Create a bilinear lagrange basis
@@ -104,11 +106,12 @@ linearBasis.CreateStart(linearBasisUserNumber)
 linearBasis.type = CMISS.BasisTypes.LAGRANGE_HERMITE_TP
 linearBasis.numberOfXi = 2
 linearBasis.interpolationXi = [CMISS.BasisInterpolationSpecifications.LINEAR_LAGRANGE]*2
-linearBasis.quadratureNumberOfGaussXi = [2]*2
+linearBasis.quadratureNumberOfGaussXi = [3]*2
 linearBasis.CreateFinish()
 
 
-def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,outputFilename,transient,supg,fdJacobian,referencePressure):
+def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,
+              outputFilename,transient,supg,fdJacobian,referencePressure,initialiseFromFile,analytic):
     """ Sets up the lid driven cavity problem and solves with the provided parameter values
 
           Square Lid-Driven Cavity
@@ -129,8 +132,9 @@ def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,ou
     generatedMesh.CreateStart(generatedMeshUserNumber,region)
     generatedMesh.type = CMISS.GeneratedMeshTypes.REGULAR
     if supg:
-        generatedMesh.basis = [quadraticBasis,linearBasis]
-#        generatedMesh.basis = [quadraticBasis,quadraticBasis]
+#        generatedMesh.basis = [quadraticBasis,linearBasis]
+        generatedMesh.basis = [quadraticBasis,quadraticBasis]
+#        generatedMesh.basis = [linearBasis,linearBasis]
     else:
         generatedMesh.basis = [quadraticBasis,linearBasis]
     generatedMesh.extent = cavityDimensions
@@ -176,15 +180,19 @@ def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,ou
 
     if supg:
         # Set max CFL number (default 1.0)
-        equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,2,100000.0)
+        equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,2,100000000.0)
         # Set time increment (default 0.0)
-        equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,3,transient[2])
+        equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,
+                                                      CMISS.FieldParameterSetTypes.VALUES,3,transient[2])
         # Set constant A 
-        equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,4,1.0)
+        equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,
+                                                      CMISS.FieldParameterSetTypes.VALUES,4,0.0)
         # Set constant B 
-        equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,5,1.0)
+        equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,
+                                                      CMISS.FieldParameterSetTypes.VALUES,5,0.0)
         # Set constant C 
-        equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,6,1.0)
+        equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,
+                                                      CMISS.FieldParameterSetTypes.VALUES,6,0.0)
 
     # Create dependent field
     dependentField = CMISS.Field()
@@ -210,10 +218,31 @@ def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,ou
     materialsField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,1,viscosity)
     materialsField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,2,density)
 
+    # If specified, create analytic field (allows for time-dependent calculation of sinusoidal waveform during solve)
+    if analytic:
+        amplitude = -0.5*lidVelocity[0]
+        offset = 0.5*lidVelocity[0]
+        period = 20.0
+        startSine = 0.0
+        stopSine = period/2.0
+        analyticField = CMISS.Field()
+        equationsSet.AnalyticCreateStart(CMISS.NavierStokesAnalyticFunctionTypes.FlowrateSinusoid,analyticFieldUserNumber,analyticField)
+        equationsSet.AnalyticCreateFinish()
+        # Initialise analytic field parameters: (1-4) Dependent params, 5 amplitude, 6 offset, 7 period
+        analyticField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,1,1.0)
+        analyticField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,2,0.0)
+        analyticField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,3,0.0)
+        analyticField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,4,0.0)
+        analyticField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,5,amplitude)
+        analyticField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,6,offset)
+        analyticField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,7,period)
+        analyticField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,8,startSine)
+        analyticField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,9,stopSine)
+
     # Create equations
     equations = CMISS.Equations()
     equationsSet.EquationsCreateStart(equations)
-    equations.sparsityType = CMISS.EquationsSparsityTypes.FULL #SPARSE
+    equations.sparsityType = CMISS.EquationsSparsityTypes.SPARSE
     equations.outputType = CMISS.EquationsOutputTypes.NONE
     equationsSet.EquationsCreateFinish()
 
@@ -243,7 +272,7 @@ def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,ou
     problem.SolversCreateStart()
     problem.SolverGet([CMISS.ControlLoopIdentifiers.NODE],1,dynamicSolver)
     dynamicSolver.outputType = CMISS.SolverOutputTypes.NONE
-    dynamicSolver.dynamicTheta = [1.0]
+    dynamicSolver.dynamicTheta = [0.5]
     nonlinearSolver = CMISS.Solver()
     dynamicSolver.DynamicNonlinearSolverGet(nonlinearSolver)
     if fdJacobian:
@@ -281,7 +310,13 @@ def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,ou
     nodes = CMISS.Nodes()
     region.NodesGet(nodes)
     print("Total # of nodes: " + str(nodes.numberOfNodes))
+    if initialiseFromFile:
+        dependentField.ParameterSetCreate(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.PREVIOUS_VALUES)
+        initFile = "./output/Re" + str(int(1/viscosity)) + "Elem" +str(numberOfElements[0])+"x" +str(numberOfElements[1]) + "_SUPG/init/Initialise.exnode"
+        print("Reading initial data from: " + initFile)
+        initialData = exfile.Exnode(initFile)
     boundaryTolerance = 1.0e-6
+
     # Currently issues with getting generated mesh surfaces through python so easier to just loop over all nodes
     for node in range(nodes.numberOfNodes):
         nodeId = node + 1
@@ -306,13 +341,28 @@ def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,ou
             elif (cavityDimensions[1]-yLocation < boundaryTolerance):
                 if not (xLocation < boundaryTolerance or 
                         cavityDimensions[0]-xLocation < boundaryTolerance):
-                    boundaryConditions.SetNode(dependentField,CMISS.FieldVariableTypes.U,1,1,nodeNumber,1,CMISS.BoundaryConditionsTypes.FIXED,lidVelocity[0])
-                    boundaryConditions.SetNode(dependentField,CMISS.FieldVariableTypes.U,1,1,nodeNumber,2,CMISS.BoundaryConditionsTypes.FIXED,lidVelocity[1])
-                    #print('lid node: '+str(nodeNumber))
+                    if analytic:
+                        boundaryConditions.SetNode(dependentField,CMISS.FieldVariableTypes.U,1,1,nodeNumber,1,CMISS.BoundaryConditionsTypes.FIXED_INLET,0.0)
+                        boundaryConditions.SetNode(dependentField,CMISS.FieldVariableTypes.U,1,1,nodeNumber,2,CMISS.BoundaryConditionsTypes.FIXED_INLET,0.0)
+                    else:
+                        boundaryConditions.SetNode(dependentField,CMISS.FieldVariableTypes.U,1,1,nodeNumber,1,CMISS.BoundaryConditionsTypes.FIXED,lidVelocity[0])
+                        boundaryConditions.SetNode(dependentField,CMISS.FieldVariableTypes.U,1,1,nodeNumber,2,CMISS.BoundaryConditionsTypes.FIXED,lidVelocity[1])
+
+                    #print('lid node: '+str(nodeNumber))                    
+
+            # Init values from file
+            if initialiseFromFile:
+                for component in range(1, 3):                
+                    component_name = str(component)
+                    value = initialData.node_value("U", component_name, nodeNumber, 1)
+                    dependentField.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,
+                                                    1,1,nodeNumber,component,value)
+                    dependentField.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.PREVIOUS_VALUES,
+                                                    1,1,nodeNumber,component,value)
 
     # Pressure node
     if (referencePressure):
-        nodeNumber = numberOfElements[0] + 1
+        nodeNumber = 1 #numberOfElements[0] + 1
         nodeDomain=decomposition.NodeDomainGet(nodeNumber,2)
         if (nodeDomain == computationalNodeNumber):
             xLocation = geometricField.ParameterSetGetNodeDP(CMISS.FieldVariableTypes.U,
@@ -323,9 +373,10 @@ def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,ou
                                                              1,1,nodeNumber,2)
             # bottom center node - reference pressure: p=0
             boundaryConditions.SetNode(dependentField,CMISS.FieldVariableTypes.U,1,1,nodeNumber,3,CMISS.BoundaryConditionsTypes.FIXED,0.0)
-            #print('pressure node: '+str(nodeNumber))
+            print('pressure node: '+str(nodeNumber))
 
     solverEquations.BoundaryConditionsCreateFinish()
+    linearSolver.MumpsSetIcntl(14,60)
 
     # Solve the problem
     problem.Solve()
@@ -345,6 +396,8 @@ def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,ou
     geometricField.Destroy()
     if supg:
         equationsSetField.Destroy()
+    if analytic:
+        analyticField.Destroy()
     dependentField.Destroy()
     materialsField.Destroy()
     equationsSet.Destroy()
@@ -353,51 +406,69 @@ def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,ou
 
 # Problem defaults
 dimensions = [1.0,1.0]
-elementResolution = [20,20]
-ReynoldsNumbers = [1000]
+elementResolutions = [10]#,20,30,40,60]
+#elementResolution = [20,20]
+ReynoldsNumbers = [1000,400,100]#,3200,5000]
 lidVelocity = [1.0,0.0]
-supgTypes = [True]
+density = 1.0
+supgTypes = [False]
 fdJacobian = False
 referencePressure = True
+initialiseFromFile = False
+analyticLidVelocity = True
 
-for Re in ReynoldsNumbers:
-    for supg in supgTypes:
+# # blood: 1.06x10^-3 kg/cm^3
+# density = 0.00106
+# # blood: 3.5x10^-5 kg/cm^3
+# viscosity = 0.000035
 
-        density = 1.0
-        viscosity = 1.0/Re
-        # High Re problems susceptible to mode switching using direct iteration- solve steady state using transient
-        # solver instead to dampen out instabilities.
-        # transient parameters: startTime,stopTime,timeIncrement,outputFrequency
-        transient = [0.0,150.50001,0.5,100000]
-        if supg:    
-            outputDirectory = "./output/Re" + str(Re) + "Elem" +str(elementResolution[0])+"x" +str(elementResolution[1]) + "_SUPG/"
-        else:
-            outputDirectory = "./output/Re" + str(Re) + "Elem" +str(elementResolution[0])+"x" +str(elementResolution[1]) + "_GFEM/"
+for elemRes in elementResolutions:
+    for Re in ReynoldsNumbers:
+        for supg in supgTypes:
 
-        try:
-            os.makedirs(outputDirectory)
-        except OSError, e:
-            if e.errno != 17:
-                raise   
-        outputFile = outputDirectory +"LidDrivenCavity"
-        # Display solve info
-        if computationalNodeNumber == 1:
-            print('Starting solve with parameters: ')
-            print('---------------------------------------------------------------------')
-            print('    Reynolds number (Re): ' + str(Re))
-            print('    ElementResolution   : ' + str(elementResolution))
-            print('    SUPG                : ' + str(supg))
-            print('    Transient parameters: ' + str(transient))
-            print('    FD Jacobian: ' + str(fdJacobian))
-        LidDriven(elementResolution,dimensions,lidVelocity,viscosity,density,outputFile,transient,supg,fdJacobian,referencePressure)
-        if computationalNodeNumber == 1:
-            print('Finished solve with parameters: ')
-            print('---------------------------------------------------------------------')
-            print('    Reynolds number (Re): ' + str(Re))
-            print('    ElementResolution   : ' + str(elementResolution))
-            print('    SUPG                : ' + str(supg))
-            print('    Transient parameters: ' + str(transient))
-            print('    FD Jacobian         : ' + str(fdJacobian))
+            elementResolution = [elemRes,elemRes]
+            viscosity = density*lidVelocity[0]/Re
+
+            #lidVelocity[0] = viscosity*Re/density
+
+            # High Re problems susceptible to mode switching using direct iteration- solve steady state using transient
+            # solver instead to dampen out instabilities.
+            # transient parameters: startTime,stopTime,timeIncrement,outputFrequency
+            transient = [0.0,300.0000001,0.1,1000000]
+            if supg:    
+                outputDirectory = "./output/Re" + str(Re) + "Elem" +str(elementResolution[0])+"x" +str(elementResolution[1]) + "_SUPG/"
+            else:
+                outputDirectory = "./output/Re" + str(Re) + "Elem" +str(elementResolution[0])+"x" +str(elementResolution[1]) + "_GFEM/"
+
+            try:
+                os.makedirs(outputDirectory)
+            except OSError, e:
+                if e.errno != 17:
+                    raise   
+            outputFile = outputDirectory +"LidDrivenCavity"
+            # Display solve info
+            if computationalNodeNumber == 0:
+                print('Starting solve with parameters: ')
+                print('---------------------------------------------------------------------')
+                print('    Reynolds number (Re): ' + str(Re))
+                print('    ElementResolution   : ' + str(elementResolution))
+                print('    SUPG                : ' + str(supg))
+                print('    Transient parameters: ' + str(transient))
+                print('    FD Jacobian: ' + str(fdJacobian))
+            start = time.time()
+            LidDriven(elementResolution,dimensions,lidVelocity,viscosity,density,
+                      outputFile,transient,supg,fdJacobian,referencePressure,initialiseFromFile,analyticLidVelocity)
+            end = time.time()
+            runtime = end - start
+            if computationalNodeNumber == 0:
+                print('Finished solve with parameters: ')
+                print('---------------------------------------------------------------------')
+                print('    Reynolds number (Re): ' + str(Re))
+                print('    ElementResolution   : ' + str(elementResolution))
+                print('    SUPG                : ' + str(supg))
+                print('    Transient parameters: ' + str(transient))
+                print('    FD Jacobian         : ' + str(fdJacobian))
+                print('    Runtime             : ' + str(runtime))
 
 CMISS.Finalise()
 
