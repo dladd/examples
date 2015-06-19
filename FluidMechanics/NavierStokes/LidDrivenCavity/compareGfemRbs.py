@@ -200,20 +200,21 @@ def readExnodeFile(filename,info,nodeData,totalNumberOfNodes):
 # C o n t r o l   P a n e l
 #=================================================================
 
-ReynoldsNumbers = [1000,1000]#,400,400,1000,1000,2500,2500,3200,3200,5000,5000]#,5000,5000]
+ReynoldsNumbers = [100,100,400,400,1000,1000,2500,2500,3200,3200,5000]#,5000,5000]
+#ReynoldsNumbers = [5000]
 #ReynoldsNumbers = [100,400,1000,2500,3200,5000]
 # 441=10Elem, 1681=20Elem, 3721=30Elem, 6561=40Elem 14641 = 60Elem, 
-meshResolution = [10,10]#[80,80]#[20,20]#[50,50]#[200,200]#[100,100]#[40,40]#[20,20] # [10,10]
-totalNumberOfNodes = 441#4225#1681#4225#1681#10201 #14641 #6561#25921#1681#10201#160801 #40401 # 6561 #1681 # 441 3721#
-#totalNumberOfNodes = 1681#441#81#25#1681#441
+meshResolution = [20,20]#[80,80]#[20,20]#[50,50]#[200,200]#[100,100]#[40,40]#[20,20] # [10,10]
+#totalNumberOfNodes =441#6561#3721#4225#1681#4225#1681#10201 #14641 #6561#25921#1681#10201#160801 #40401 # 6561 #1681 # 441 3721#
+totalNumberOfNodes = 1681#441#81#25#1681#441
 compareSolutions = ['ghia.txt','erturk.txt','botella.txt']
 compareMarkers = ['yo','gs','c^']
 compareNames = ['Ghia','Erturk','Botella']
-numberOfProcessors = [1,2]#,4,2,4,2,4,2,4,2,4,2]
-SUPG = [True,False]#,True,False,True,False,True,False,True,False,True,False]#,True,False]
+numberOfProcessors = [2,2,2,2,2,2,2,2,2,2,2]#[4,4,4,4,4,4,4,4,4,4,4,4]
+SUPG = [True,False,True,False,True,False,True,False,True,False,True]#True,False,True,False]#,True,False]
 figsDir = "/hpc/dlad004/thesis/Thesis/figures/cfd/"
-writeToFigs = True
-plotLegend = True
+writeToFigs = False
+plotLegend = False
 
 #=================================================================
 #=================================================================
@@ -224,7 +225,7 @@ numberOfRe = len(ReynoldsNumbers)
 
 if any(SUPG):
     fieldSUPG = fieldInfo()        
-    path = "./output/Re" + str(ReynoldsNumbers[0]) + 'Elem' + str(meshResolution[0]) + 'x' + str(meshResolution[1]) + '_SUPG/'
+    path = "./output/Re" + str(ReynoldsNumbers[0]) + 'Elem' + str(meshResolution[0]) + 'x' + str(meshResolution[1]) + '_SUPG_temp/'
     filename = path + '/LidDrivenCavity.part0.exnode'
     try:
         with open(filename):
@@ -239,7 +240,7 @@ if any(SUPG):
 
 if not all(SUPG):
     fieldGFEM = fieldInfo()        
-    path = "./output/Re" + str(ReynoldsNumbers[0]) + 'Elem' + str(meshResolution[0]) + 'x' + str(meshResolution[1]) + '_GFEM/'
+    path = "./output/Re" + str(ReynoldsNumbers[0]) + 'Elem' + str(meshResolution[0]) + 'x' + str(meshResolution[1]) + '_GFEM_temp/'
     filename = path + '/LidDrivenCavity.part0.exnode'
     try:
         with open(filename):
@@ -253,24 +254,26 @@ if not all(SUPG):
     nodeDataGFEM = numpy.zeros([numberOfRe,totalNumberOfNodes,fieldGFEM.numberOfFields,max(fieldGFEM.numberOfFieldComponents)])
 
 i = -1
+#print(nodeDataSUPG[0,431,0,1])
 for Re in ReynoldsNumbers:
     i+=1
     print('Reading data for Re ' + str(Re))
     for proc in range(numberOfProcessors[i]):
         if SUPG[i]:
-            path = "./output/Re" + str(Re) + 'Elem' + str(meshResolution[0]) + 'x' + str(meshResolution[1]) + '_SUPG/'
+            path = "./output/Re" + str(Re) + 'Elem' + str(meshResolution[0]) + 'x' + str(meshResolution[1]) + '_SUPG_temp/'
             filename = path + 'LidDrivenCavity.part' + str(proc) +'.exnode'
             importNodeData = numpy.zeros([totalNumberOfNodes,fieldSUPG.numberOfFields,max(fieldSUPG.numberOfFieldComponents)])
             readExnodeFile(filename,fieldSUPG,importNodeData,totalNumberOfNodes)
-            #print(importNodeData[431,0,1])
+            #print(importNodeData[:,0,1])
             nodeDataSUPG[i,:,:,:] += importNodeData[:,:,:]
-            #print(importNodeData[431,0,1])
+            #print(nodeDataSUPG[i,431,0,1])
         else:
-            path = "./output/Re" + str(Re) + 'Elem' + str(meshResolution[0]) + 'x' + str(meshResolution[1]) + '_GFEM/'
+            path = "./output/Re" + str(Re) + 'Elem' + str(meshResolution[0]) + 'x' + str(meshResolution[1]) + '_GFEM_temp/'
             filename = path + 'LidDrivenCavity.part' + str(proc) +'.exnode'
             importNodeData = numpy.zeros([totalNumberOfNodes,fieldGFEM.numberOfFields,max(fieldGFEM.numberOfFieldComponents)])
             readExnodeFile(filename,fieldGFEM,importNodeData,totalNumberOfNodes)
             nodeDataGFEM[i,:,:,:] += importNodeData[:,:,:]
+#print(nodeDataSUPG[i,431,0,1])
 
         
 tolerance = 1e-8

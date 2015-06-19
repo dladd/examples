@@ -255,10 +255,10 @@ def solveProblem(transient,viscosity,density,offset,amplitude,period):
             CMISS.EquationsSetSubtypes.TRANSIENT_SUPG_NAVIER_STOKES,
             equationsSetFieldUserNumber, equationsSetField)
     equationsSet.CreateFinish()
-    # Set boundary retrograde flow stabilisation scaling factor (default 0.2)
+    # Set boundary retrograde flow stabilisation scaling factor (default 1.0)
     equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,
                                                   CMISS.FieldParameterSetTypes.VALUES, 
-                                                  1,0.2)
+                                                  1,1.0)
 
     # Create dependent field
     dependentField = CMISS.Field()

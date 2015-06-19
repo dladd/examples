@@ -132,11 +132,13 @@ def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,
     generatedMesh.CreateStart(generatedMeshUserNumber,region)
     generatedMesh.type = CMISS.GeneratedMeshTypes.REGULAR
     if supg:
-#        generatedMesh.basis = [quadraticBasis,linearBasis]
-        generatedMesh.basis = [quadraticBasis,quadraticBasis]
+        generatedMesh.basis = [quadraticBasis,linearBasis]
+#        generatedMesh.basis = [quadraticBasis,quadraticBasis]
 #        generatedMesh.basis = [linearBasis,linearBasis]
     else:
         generatedMesh.basis = [quadraticBasis,linearBasis]
+#        generatedMesh.basis = [quadraticBasis,quadraticBasis]
+#        generatedMesh.basis = [linearBasis,linearBasis]
     generatedMesh.extent = cavityDimensions
     generatedMesh.numberOfElements = numberOfElements
 
@@ -179,20 +181,21 @@ def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,
     equationsSet.CreateFinish()
 
     if supg:
+        # Set beta: boundary retrograde flow stabilisation scaling factor (default 1.0)
+        equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,
+                                                      CMISS.FieldParameterSetTypes.VALUES,1,0.0)
         # Set max CFL number (default 1.0)
-        equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,2,100000000.0)
+        equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,
+                                                      CMISS.FieldParameterSetTypes.VALUES,2,1.0E20)
         # Set time increment (default 0.0)
         equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,
                                                       CMISS.FieldParameterSetTypes.VALUES,3,transient[2])
-        # Set constant A 
+        # Set C1 
         equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,
-                                                      CMISS.FieldParameterSetTypes.VALUES,4,0.0)
-        # Set constant B 
+                                                      CMISS.FieldParameterSetTypes.VALUES,4,12.0)
+        # Set stabilisation type (default 1.0)
         equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,
-                                                      CMISS.FieldParameterSetTypes.VALUES,5,0.0)
-        # Set constant C 
-        equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,
-                                                      CMISS.FieldParameterSetTypes.VALUES,6,0.0)
+                                                      CMISS.FieldParameterSetTypes.VALUES,5,1.0)
 
     # Create dependent field
     dependentField = CMISS.Field()
@@ -220,6 +223,7 @@ def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,
 
     # If specified, create analytic field (allows for time-dependent calculation of sinusoidal waveform during solve)
     if analytic:
+        #(offset + amplitude*cos(2*pi*(CURRENT_TIME/(period))))
         amplitude = -0.5*lidVelocity[0]
         offset = 0.5*lidVelocity[0]
         period = 20.0
@@ -376,9 +380,11 @@ def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,
             print('pressure node: '+str(nodeNumber))
 
     solverEquations.BoundaryConditionsCreateFinish()
-    linearSolver.MumpsSetIcntl(14,60)
+    # Need to fix using MUMPS 5.0?
+    #linearSolver.MumpsSetIcntl(14,60)
 
     # Solve the problem
+    print("solving...")
     problem.Solve()
 
     print("exporting CMGUI data")
@@ -406,12 +412,12 @@ def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,
 
 # Problem defaults
 dimensions = [1.0,1.0]
-elementResolutions = [10]#,20,30,40,60]
+elementResolutions = [20]#,20,30,40,60]
 #elementResolution = [20,20]
-ReynoldsNumbers = [1000,400,100]#,3200,5000]
+ReynoldsNumbers = [100,400,1000,2500,3200,5000]
 lidVelocity = [1.0,0.0]
 density = 1.0
-supgTypes = [False]
+supgTypes = [True]
 fdJacobian = False
 referencePressure = True
 initialiseFromFile = False
@@ -434,7 +440,7 @@ for elemRes in elementResolutions:
             # High Re problems susceptible to mode switching using direct iteration- solve steady state using transient
             # solver instead to dampen out instabilities.
             # transient parameters: startTime,stopTime,timeIncrement,outputFrequency
-            transient = [0.0,300.0000001,0.1,1000000]
+            transient = [0.0,300.000001,0.1,1000000]#000000]
             if supg:    
                 outputDirectory = "./output/Re" + str(Re) + "Elem" +str(elementResolution[0])+"x" +str(elementResolution[1]) + "_SUPG/"
             else:
