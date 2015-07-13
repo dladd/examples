@@ -201,20 +201,24 @@ def readExnodeFile(filename,info,nodeData,totalNumberOfNodes):
 #=================================================================
 
 ReynoldsNumbers = [100,100,400,400,1000,1000,2500,2500,3200,3200,5000]#,5000,5000]
+#ReynoldsNumbers = [100,100,1000]#,1000,5000]#,5000,5000]
 #ReynoldsNumbers = [5000]
 #ReynoldsNumbers = [100,400,1000,2500,3200,5000]
 # 441=10Elem, 1681=20Elem, 3721=30Elem, 6561=40Elem 14641 = 60Elem, 
 meshResolution = [20,20]#[80,80]#[20,20]#[50,50]#[200,200]#[100,100]#[40,40]#[20,20] # [10,10]
-#totalNumberOfNodes =441#6561#3721#4225#1681#4225#1681#10201 #14641 #6561#25921#1681#10201#160801 #40401 # 6561 #1681 # 441 3721#
-totalNumberOfNodes = 1681#441#81#25#1681#441
+totalNumberOfNodes =1681#6561#3721#4225#1681#4225#1681#10201 #14641 #6561#25921#1681#10201#160801 #40401 # 6561 #1681 # 441 3721#
+#totalNumberOfNodes = 1681#441#81#25#1681#441
 compareSolutions = ['ghia.txt','erturk.txt','botella.txt']
 compareMarkers = ['yo','gs','c^']
 compareNames = ['Ghia','Erturk','Botella']
-numberOfProcessors = [2,2,2,2,2,2,2,2,2,2,2]#[4,4,4,4,4,4,4,4,4,4,4,4]
-SUPG = [True,False,True,False,True,False,True,False,True,False,True]#True,False,True,False]#,True,False]
+#numberOfProcessors = [4,4,4,4,4,4,4,4,4,4,4,4]
+numberOfProcessors = [2]*11
+SUPG = [True,False]*5
+SUPG.append(True)
 figsDir = "/hpc/dlad004/thesis/Thesis/figures/cfd/"
 writeToFigs = False
-plotLegend = False
+plotLegend = True
+ReLabels = True
 
 #=================================================================
 #=================================================================
@@ -225,7 +229,7 @@ numberOfRe = len(ReynoldsNumbers)
 
 if any(SUPG):
     fieldSUPG = fieldInfo()        
-    path = "./output/Re" + str(ReynoldsNumbers[0]) + 'Elem' + str(meshResolution[0]) + 'x' + str(meshResolution[1]) + '_SUPG_temp/'
+    path = "./output/Re" + str(ReynoldsNumbers[0]) + 'Elem' + str(meshResolution[0]) + 'x' + str(meshResolution[1]) + '_SUPG/'
     filename = path + '/LidDrivenCavity.part0.exnode'
     try:
         with open(filename):
@@ -240,7 +244,7 @@ if any(SUPG):
 
 if not all(SUPG):
     fieldGFEM = fieldInfo()        
-    path = "./output/Re" + str(ReynoldsNumbers[0]) + 'Elem' + str(meshResolution[0]) + 'x' + str(meshResolution[1]) + '_GFEM_temp/'
+    path = "./output/Re" + str(ReynoldsNumbers[0]) + 'Elem' + str(meshResolution[0]) + 'x' + str(meshResolution[1]) + '_GFEM/'
     filename = path + '/LidDrivenCavity.part0.exnode'
     try:
         with open(filename):
@@ -260,7 +264,7 @@ for Re in ReynoldsNumbers:
     print('Reading data for Re ' + str(Re))
     for proc in range(numberOfProcessors[i]):
         if SUPG[i]:
-            path = "./output/Re" + str(Re) + 'Elem' + str(meshResolution[0]) + 'x' + str(meshResolution[1]) + '_SUPG_temp/'
+            path = "./output/Re" + str(Re) + 'Elem' + str(meshResolution[0]) + 'x' + str(meshResolution[1]) + '_SUPG/'
             filename = path + 'LidDrivenCavity.part' + str(proc) +'.exnode'
             importNodeData = numpy.zeros([totalNumberOfNodes,fieldSUPG.numberOfFields,max(fieldSUPG.numberOfFieldComponents)])
             readExnodeFile(filename,fieldSUPG,importNodeData,totalNumberOfNodes)
@@ -268,7 +272,7 @@ for Re in ReynoldsNumbers:
             nodeDataSUPG[i,:,:,:] += importNodeData[:,:,:]
             #print(nodeDataSUPG[i,431,0,1])
         else:
-            path = "./output/Re" + str(Re) + 'Elem' + str(meshResolution[0]) + 'x' + str(meshResolution[1]) + '_GFEM_temp/'
+            path = "./output/Re" + str(Re) + 'Elem' + str(meshResolution[0]) + 'x' + str(meshResolution[1]) + '_GFEM/'
             filename = path + 'LidDrivenCavity.part' + str(proc) +'.exnode'
             importNodeData = numpy.zeros([totalNumberOfNodes,fieldGFEM.numberOfFields,max(fieldGFEM.numberOfFieldComponents)])
             readExnodeFile(filename,fieldGFEM,importNodeData,totalNumberOfNodes)
@@ -339,22 +343,35 @@ if plotData:
         reIndex +=1
         newRe = True
         if reIndex > 0:
-             if Re == ReynoldsNumbers[reIndex-1]:
-                 newRe = False
-             else:
-                 numberOfUniqueRe+=1
+            #print('Re: ' + str(Re))
+            #print('Reynolds#: ' + str(ReynoldsNumbers[reIndex-1]))
+            #if Re == ReynoldsNumbers[reIndex-1]:
+            if not SUPG[reIndex]:
+                newRe = False
+            else:
+                numberOfUniqueRe+=1
         if newRe:
             for ref in range(len(compareSolutions)):
                 if foundResults[ref,reIndex]:
                     plotCompareData = numpy.zeros((len(compareData[ref][reIndex])))
-                    plotCompareData = numpy.array(compareData[ref][reIndex]) - spacing*reIndex
+                    # nasty little hack to get spacing right for low resolution problem
+                    if totalNumberOfNodes == 441:
+                        if Re == 3200:
+                            newZero = 4.0
+                        elif Re == 5000:
+                            newZero = 5.0
+                        else:
+                            newZero = spacing*reIndex
+                    else:
+                        newZero = spacing*reIndex
+                    plotCompareData = numpy.array(compareData[ref][reIndex]) - newZero
                     #little hack to avoid repeating the symbols in the legend
                     if not labeled[ref]:
                         pylab.plot(plotCompareData[0][0],compareLocations[ref][0][0],compareMarkers[ref],label=compareNames[ref],alpha=1.0)
                         labeled[ref] = 1
                     pylab.plot(plotCompareData,compareLocations[ref],compareMarkers[ref],alpha=1.0)
 
-            plotVLineU[reIndex,:] = vLineU[reIndex,:] - spacing*reIndex
+            plotVLineU[reIndex,:] = vLineU[reIndex,:] - newZero
         else:
             plotVLineU[reIndex,:] = vLineU[reIndex,:] - spacing*(reIndex-1)
 
@@ -382,7 +399,8 @@ if plotData:
 #        pylab.legend(handles, labels, numpoints=1, shadow = True, loc = (0, -0.4), ncol=5)
         newHandles = (handles[2],handles[4],handles[0],handles[1],handles[3])        
         newLabels = (labels[2],labels[4],labels[0],labels[1],labels[3])        
-        pylab.legend(newHandles, newLabels, numpoints=1, shadow = True, loc = (0.9, 0.10), ncol=1)
+#        pylab.legend(newHandles, newLabels, numpoints=1, shadow = True, loc = (0.9, 0.10), ncol=1)
+        pylab.legend(newHandles, newLabels, numpoints=1, shadow = False, loc = (0.1, -0.4), ncol=5)
     pylab.xlabel('x-velocity (cm/s)')
     pylab.ylabel('y-coordinate (cm)')
     pylab.title('Mesh element resolution: ' + str(meshResolution[0])+'x'+str(meshResolution[0])+' (' + str(totalNumberOfNodes) +' DOFs)')
@@ -399,6 +417,13 @@ if plotData:
                                )
     )
     pylab.text(0.4,-0.1,'1.0')
+    if ReLabels:
+        pylab.text(-0.5,0.65,'Re=100',rotation=55)
+        pylab.text(-1.4,0.65,'Re=400',rotation=55)
+        pylab.text(-2.4,0.65,'Re=1000',rotation=55)
+        pylab.text(-3.4,0.65,'Re=2500',rotation=55)
+        pylab.text(-4.4,0.65,'Re=3200',rotation=55)
+        pylab.text(-5.4,0.65,'Re=5000',rotation=55)
     #fname = 'ReAnalysisMesh' + str(meshResolution[0]) + 'x' + str(meshResolution[1]) + 'Dofs' + str(totalNumberOfNodes) + '.pdf'
     fname = 'LidReAnalysis_TH_' + 'Dofs' + str(totalNumberOfNodes) + '.pdf'
     #fname = 'C0LidReAnalysis' + 'Dofs' + str(totalNumberOfNodes) + '.pdf'
