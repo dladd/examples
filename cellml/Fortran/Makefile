@@ -1,10 +1,11 @@
-# -*- makefile -*-
+#
+#-*- makefile -*-
 #
 # For use with GNU make.
 #
 #
 #----------------------------------------------------------------------------------------------------------------------------------
-# Makefile for compiling openCMISS examples
+# Makefile for compiling OpenCMISS examples
 #
 # Original by Chris Bradley adapted from the CMISS Makefile by Karl Tomlinson 
 # Changes:
@@ -54,15 +55,17 @@ MAKEFLAGS = --no-builtin-rules --warn-undefined-variables
 #----------------------------------------------------------------------------------------------------------------------------------
 
 ifndef OPENCMISS_ROOT
-  OPENCMISS_ROOT := ../..
-  GLOBAL_ROOT := $(CURDIR)/../..
+  OPENCMISS_ROOT := ../../..
+  GLOBAL_ROOT := $(CURDIR)/../../..
 else
   GLOBAL_ROOT := ${OPENCMISS_ROOT}/cm
 endif
 
 #----------------------------------------------------------------------------------------------------------------------------------
 
-EXAMPLE_NAME = cellml
+EXAMPLE_PATH = cellml/
+
+EXAMPLE_NAME = Fortran
 
 include $(GLOBAL_ROOT)/ExampleMakefile
 
