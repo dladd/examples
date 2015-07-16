@@ -169,7 +169,7 @@ def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,
         equationsSet.CreateStart(equationsSetUserNumber,region,geometricField,
                 CMISS.EquationsSetClasses.FLUID_MECHANICS,
                 CMISS.EquationsSetTypes.NAVIER_STOKES_EQUATION,
-                CMISS.EquationsSetSubtypes.TRANSIENT_SUPG_NAVIER_STOKES,
+                CMISS.EquationsSetSubtypes.TransientRBS_NAVIER_STOKES,
                 equationsSetFieldUserNumber, equationsSetField)
     else:
         equationsSet.CreateStart(equationsSetUserNumber,region,geometricField,
@@ -181,17 +181,14 @@ def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,
 
     if supg:
         # Set max CFL number (default 1.0)
-        equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,
+        equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U1,
                                                       CMISS.FieldParameterSetTypes.VALUES,2,1.0E20)
         # Set time increment (default 0.0)
-        equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,
+        equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U1,
                                                       CMISS.FieldParameterSetTypes.VALUES,3,transient[2])
-        # Set C1 
-        equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,
-                                                      CMISS.FieldParameterSetTypes.VALUES,4,12.0)
         # Set stabilisation type (default 1.0 = RBS)
-        equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,
-                                                      CMISS.FieldParameterSetTypes.VALUES,5,1.0)
+        equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U1,
+                                                      CMISS.FieldParameterSetTypes.VALUES,4,1.0)
 
     # Create dependent field
     dependentField = CMISS.Field()
@@ -245,7 +242,7 @@ def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,
     if supg:
         problem.SpecificationSet(CMISS.ProblemClasses.FLUID_MECHANICS,
                                  CMISS.ProblemTypes.NAVIER_STOKES_EQUATION,
-                                 CMISS.ProblemSubTypes.TRANSIENT_SUPG_NAVIER_STOKES)
+                                 CMISS.ProblemSubTypes.TransientRBS_NAVIER_STOKES)
     else:
         problem.SpecificationSet(CMISS.ProblemClasses.FLUID_MECHANICS,
                                  CMISS.ProblemTypes.NAVIER_STOKES_EQUATION,
@@ -386,7 +383,7 @@ def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,
 
 dimensions = [1.0,1.0]
 elementResolutions = [20]
-ReynoldsNumbers = [100,400,1000,2500,3200,5000]
+ReynoldsNumbers = [100,3200]
 lidVelocity = [1.0,0.0]
 density = 1.0
 supgTypes = [True,False]
