@@ -74,25 +74,35 @@ def ChangeDirectory(path):
     finally:
         os.chdir(prev_cwd)
 
-# Get the computational nodes information
+# Get the computational node information (how many processors)
 numberOfComputationalNodes = CMISS.ComputationalNumberOfNodesGet()
 computationalNodeNumber = CMISS.ComputationalNodeNumberGet()
 
-# -----------------------------------------------
-#  Get the mesh information from FieldML data
-# -----------------------------------------------
 
-# Read xml file
-meshName = 'hexCylinder140'#'hexCylinder12'            
+# -----------------------------------------------
+#  S e l e c t    M e s h   
+# -----------------------------------------------
+quadraticMesh = True
+meshName = 'hexCylinder140'#'hexCylinder13'#'hexCylinder12'
 inputDir = './input/' + meshName +'/'
 length = 10.016782
 radius = 0.5
 axialComponent = 1
-fieldmlInput = inputDir + meshName + '.xml'
+
+# -----------------------------------------------
+#  Get the mesh information from FieldML data
+# -----------------------------------------------
+# Read xml file
+if quadraticMesh:
+    meshType = 'Quadratic'
+else:
+    meshType = 'Linear'
+
+fieldmlInput = inputDir + meshName + meshType + '.xml'
 print('FieldML input file: ' + fieldmlInput)
 
 #Wall boundary nodes
-filename=inputDir + 'bc/wallNodes.dat'
+filename=inputDir + 'bc/wallNodes'+meshType+'.dat'
 try:
     with open(filename):
         f = open(filename,"r")
@@ -103,7 +113,7 @@ except IOError:
    print ('Could not open Wall boundary node file: ' + filename)
 
 #Inlet boundary nodes
-filename=inputDir + 'bc/inletNodes.dat'
+filename=inputDir + 'bc/inletNodes'+meshType+'.dat'
 try:
     with open(filename):
         f = open(filename,"r")
@@ -112,9 +122,21 @@ try:
         f.close()
 except IOError:
    print ('Could not open Inlet boundary node file: ' + filename)
+#Inlet boundary elements
+filename=inputDir + 'bc/inletElements.dat'
+try:
+    with open(filename):
+        f = open(filename,"r")
+        numberOfInletElements=int(f.readline())
+        inletElements=map(int,(re.split(',',f.read())))
+        f.close()
+except IOError:
+   print ('Could not open Inlet boundary element file: ' + filename)
+#Inlet boundary info
+normalInlet=[0.0,-1.0,0.0]
 
 #Outlet boundary nodes
-filename=inputDir + 'bc/outletNodes.dat'
+filename=inputDir + 'bc/outletNodes'+meshType+'.dat'
 try:
     with open(filename):
         f = open(filename,"r")
@@ -123,6 +145,18 @@ try:
         f.close()
 except IOError:
    print ('Could not open Outlet boundary node file: ' + filename)
+#Outlet boundary elements
+filename=inputDir + 'bc/outletElements.dat'
+try:
+    with open(filename):
+        f = open(filename,"r")
+        numberOfOutletElements=int(f.readline())
+        outletElements=map(int,(re.split(',',f.read())))
+        f.close()
+except IOError:
+   print ('Could not open Outlet boundary element file: ' + filename)
+#Outlet boundary info
+normalOutlet=[0.0,1.0,0.0]
 
 # -----------------------------------------------
 #  Set up general problem
@@ -138,16 +172,17 @@ except IOError:
  geometricFieldUserNumber,
  equationsSetFieldUserNumber,
  dependentFieldUserNumber,
+ independentFieldUserNumber,
  materialsFieldUserNumber,
  analyticFieldUserNumber,
  equationsSetUserNumber,
- problemUserNumber) = range(1,15)
+ problemUserNumber) = range(1,16)
 
 #Initialise fieldML IO
 fieldmlInfo=CMISS.FieldMLIO()
 fieldmlInfo.InputCreateFromFile(fieldmlInput)
 
-# Creation a RC coordinate system
+# Create a RC coordinate system
 coordinateSystem = CMISS.CoordinateSystem()
 fieldmlInfo.InputCoordinateSystemCreateStart("CylinderMesh.coordinates",coordinateSystem,coordinateSystemUserNumber)
 coordinateSystem.CreateFinish()
@@ -168,29 +203,36 @@ numberOfNodes = nodes.numberOfNodes
 print("number of nodes: " + str(numberOfNodes))
 
 # Create bases
-basisNumberQuadratic = 1
-basisNumberLinear = 2
-meshComponentQuadratic = 1
-meshComponentLinear = 2
-gaussQuadrature = [3,3,3]
-fieldmlInfo.InputBasisCreateStartNum("CylinderMesh.triquadratic_lagrange",basisNumberQuadratic)
-CMISS.Basis_QuadratureNumberOfGaussXiSetNum(basisNumberQuadratic,gaussQuadrature)
-CMISS.Basis_QuadratureLocalFaceGaussEvaluateSetNum(basisNumberQuadratic,True)
-CMISS.Basis_CreateFinishNum(basisNumberQuadratic)
-fieldmlInfo.InputBasisCreateStartNum("CylinderMesh.trilinear_lagrange",basisNumberLinear)
-CMISS.Basis_QuadratureNumberOfGaussXiSetNum(basisNumberLinear,gaussQuadrature)
-CMISS.Basis_QuadratureLocalFaceGaussEvaluateSetNum(basisNumberLinear,True)
-CMISS.Basis_CreateFinishNum(basisNumberLinear)
+if (quadraticMesh):
+    basisNumberQuadratic = 1
+    gaussQuadrature = [3,3,3]
+    fieldmlInfo.InputBasisCreateStartNum("CylinderMesh.triquadratic_lagrange",basisNumberQuadratic)
+    CMISS.Basis_QuadratureNumberOfGaussXiSetNum(basisNumberQuadratic,gaussQuadrature)
+    CMISS.Basis_QuadratureLocalFaceGaussEvaluateSetNum(basisNumberQuadratic,True)
+    CMISS.Basis_CreateFinishNum(basisNumberQuadratic)
+else:
+    basisNumberLinear = 1
+    gaussQuadrature = [2,2,2]
+    fieldmlInfo.InputBasisCreateStartNum("CylinderMesh.trilinear_lagrange",basisNumberLinear)
+    CMISS.Basis_QuadratureNumberOfGaussXiSetNum(basisNumberLinear,gaussQuadrature)
+    CMISS.Basis_QuadratureLocalFaceGaussEvaluateSetNum(basisNumberLinear,True)
+    CMISS.Basis_CreateFinishNum(basisNumberLinear)
 
 # Create Mesh
 numberOfMeshComponents=2
-meshComponentQuadratic=1
-meshComponentLinear=2
+meshComponent1 = 1
+meshComponent2 = 2
 mesh = CMISS.Mesh()
 fieldmlInfo.InputMeshCreateStart("CylinderMesh.mesh.argument",mesh,meshUserNumber,region)
 mesh.NumberOfComponentsSet(numberOfMeshComponents)
-fieldmlInfo.InputCreateMeshComponent(mesh,meshComponentQuadratic,"CylinderMesh.template.triquadratic")
-fieldmlInfo.InputCreateMeshComponent(mesh,meshComponentLinear,"CylinderMesh.template.trilinear")
+
+if (quadraticMesh):
+    fieldmlInfo.InputCreateMeshComponent(mesh,meshComponent1,"CylinderMesh.template.triquadratic")
+    fieldmlInfo.InputCreateMeshComponent(mesh,meshComponent2,"CylinderMesh.template.triquadratic")
+else:
+    fieldmlInfo.InputCreateMeshComponent(mesh,meshComponent1,"CylinderMesh.template.trilinear")
+    fieldmlInfo.InputCreateMeshComponent(mesh,meshComponent2,"CylinderMesh.template.trilinear")
+
 mesh.CreateFinish()
 numberOfElements = mesh.numberOfElements
 print("number of elements: " + str(numberOfElements))
@@ -232,7 +274,7 @@ def solveProblem(transient,viscosity,density,offset,amplitude,period):
                   ------------------------------------------- R = 0.5
                                              >
                                              ->  
-        p = offset + A*sin(2*pi*(t/period))  --> u(r,t)        p = 0
+             p_in =  A*cos(2*pi*(t/period))  --> u(r,t)        p_out = 0
                                              ->
                                              >
                   ------------------------------------------- L = 10
@@ -255,21 +297,33 @@ def solveProblem(transient,viscosity,density,offset,amplitude,period):
             CMISS.EquationsSetSubtypes.TRANSIENT_SUPG_NAVIER_STOKES,
             equationsSetFieldUserNumber, equationsSetField)
     equationsSet.CreateFinish()
-    # Set boundary retrograde flow stabilisation scaling factor (default 1.0)
-    equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,
+    # Set beta: boundary retrograde flow stabilisation scaling factor (default 0.0- no stabilisation)
+    equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U1,
                                                   CMISS.FieldParameterSetTypes.VALUES, 
-                                                  1,1.0)
+                                                  1,0.0)
+    # Set max CFL number (default 1.0)
+    equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U1,
+                                                  CMISS.FieldParameterSetTypes.VALUES,
+                                                  2,1000.0)
+    # Set time increment (default 0.0)
+    equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U1,
+                                                  CMISS.FieldParameterSetTypes.VALUES,
+                                                  3,transient[2])
+    # Set stabilisation type, default 1=RBS (other options 0=None, 2=RBVM, 3=RBVM w/ Hsu-Tau)
+    equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U1,
+                                                  CMISS.FieldParameterSetTypes.VALUES,
+                                                  4,1.0)
 
     # Create dependent field
     dependentField = CMISS.Field()
     equationsSet.DependentCreateStart(dependentFieldUserNumber,dependentField)
     # velocity
     for component in range(1,4):
-        dependentField.ComponentMeshComponentSet(CMISS.FieldVariableTypes.U,component,meshComponentQuadratic)        
-        dependentField.ComponentMeshComponentSet(CMISS.FieldVariableTypes.DELUDELN,component,meshComponentQuadratic) 
+        dependentField.ComponentMeshComponentSet(CMISS.FieldVariableTypes.U,component,meshComponent1)        
+        dependentField.ComponentMeshComponentSet(CMISS.FieldVariableTypes.DELUDELN,component,meshComponent1) 
     # pressure
-    dependentField.ComponentMeshComponentSet(CMISS.FieldVariableTypes.U,4,meshComponentLinear)        
-    dependentField.ComponentMeshComponentSet(CMISS.FieldVariableTypes.DELUDELN,4,meshComponentLinear) 
+    dependentField.ComponentMeshComponentSet(CMISS.FieldVariableTypes.U,4,meshComponent2)        
+    dependentField.ComponentMeshComponentSet(CMISS.FieldVariableTypes.DELUDELN,4,meshComponent2) 
     dependentField.DOFOrderTypeSet(CMISS.FieldVariableTypes.U,CMISS.FieldDOFOrderTypes.SEPARATED)
     dependentField.DOFOrderTypeSet(CMISS.FieldVariableTypes.DELUDELN,CMISS.FieldDOFOrderTypes.SEPARATED)
     equationsSet.DependentCreateFinish()
@@ -279,12 +333,12 @@ def solveProblem(transient,viscosity,density,offset,amplitude,period):
         dependentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.DELUDELN,CMISS.FieldParameterSetTypes.VALUES,component,0.0)
 
     # Initialise dependent field to analytic values
-    initialiseAnalytic = True
+    initialiseAnalytic = False
     if initialiseAnalytic:
         for node in range(1,numberOfNodes+1):
             sumPositionSq = 0.
             nodeNumber = nodes.UserNumberGet(node)
-            nodeDomain=decomposition.NodeDomainGet(nodeNumber,meshComponentQuadratic)
+            nodeDomain=decomposition.NodeDomainGet(nodeNumber,meshComponent1)
             if (nodeDomain == computationalNodeNumber):
                 for component in range(1,4):
                     if component != axialComponent+1:
@@ -292,7 +346,16 @@ def solveProblem(transient,viscosity,density,offset,amplitude,period):
                                                                       CMISS.FieldParameterSetTypes.VALUES,
                                                                       1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,nodeNumber,component)
                         sumPositionSq += value**2
+                    else:
+                        # Pressure values
+                        axialPosition=geometricField.ParameterSetGetNodeDP(CMISS.FieldVariableTypes.U,
+                                                                           CMISS.FieldParameterSetTypes.VALUES,
+                                                                           1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,nodeNumber,component)
+                        pressureValue = amplitude - amplitude*(axialPosition-0.05015)/length
+                        dependentField.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,
+                                                                1,1,nodeNumber,4,pressureValue)
                 radialNodePosition=math.sqrt(sumPositionSq)
+                # Velocity values
                 for component in range(1,4):
                     if component == axialComponent+1:
                         value = womersleyAnalytic.womersleyAxialVelocity(transient[0],offset,amplitude,radius,
@@ -302,7 +365,6 @@ def solveProblem(transient,viscosity,density,offset,amplitude,period):
                         value = 0.0
                     dependentField.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,
                                                             1,1,nodeNumber,component,value)
-
     # Create materials field
     materialsField = CMISS.Field()
     equationsSet.MaterialsCreateStart(materialsFieldUserNumber,materialsField)
@@ -311,21 +373,31 @@ def solveProblem(transient,viscosity,density,offset,amplitude,period):
     materialsField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,1,viscosity)
     materialsField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,2,density)
 
-    # Create analytic field (allows for time-dependent calculation of sinusoidal pressure waveform during solve)
-    analytic = True
-    if analytic:
-        analyticField = CMISS.Field()
-        equationsSet.AnalyticCreateStart(CMISS.NavierStokesAnalyticFunctionTypes.FlowrateSinusoid,analyticFieldUserNumber,analyticField)
-        equationsSet.AnalyticCreateFinish()
-        # Initialise analytic field parameters: (1-4) Dependent params, 5 amplitude, 6 offset, 7 period
-        analyticField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,1,0.0)
-        analyticField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,2,0.0)
-        analyticField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,3,0.0)
-        analyticField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,4,1.0)
-        analyticField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,5,amplitude)
-        analyticField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,6,offset)
-        analyticField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,7,period)
-
+    # Create analytic field (allows for time-dependent calculation of inlet sinusoidal pressure waveform during solve)
+    analyticField = CMISS.Field()
+    equationsSet.AnalyticCreateStart(CMISS.NavierStokesAnalyticFunctionTypes.FlowrateSinusoid,analyticFieldUserNumber,analyticField)
+    equationsSet.AnalyticCreateFinish()
+    # Initialise analytic field parameters
+    for node in range(1,numberOfNodes+1):
+        nodeNumber = nodes.UserNumberGet(node)
+        nodeDomain=decomposition.NodeDomainGet(nodeNumber,meshComponent1)
+        phaseShift = math.pi/2.0
+        if (nodeDomain == computationalNodeNumber):
+            if nodeNumber in inletNodes:
+                nodeAmplitude = 1.0
+                pNorm = 1.0
+            elif nodeNumber in outletNodes:
+                nodeAmplitude = 0.0
+                pNorm = 1.0
+            else:
+                nodeAmplitude = 0.0
+                pNorm = 0.0
+            analyticParameters = [0.0,0.0,0.0,pNorm,nodeAmplitude,offset,angularFrequency,phaseShift,transient[0],transient[1]]
+            parameterNumber = 0
+            for parameter in analyticParameters:
+                parameterNumber += 1
+                analyticField.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,1,1,
+                                                       nodeNumber,parameterNumber,parameter)
 
     # Create equations
     equations = CMISS.Equations()
@@ -355,14 +427,14 @@ def solveProblem(transient,viscosity,density,offset,amplitude,period):
     problem.SolversCreateStart()
     problem.SolverGet([CMISS.ControlLoopIdentifiers.NODE],1,dynamicSolver)
     dynamicSolver.outputType = CMISS.SolverOutputTypes.NONE
-    dynamicSolver.dynamicTheta = [1.0]
+    dynamicSolver.dynamicTheta = [0.5]
     nonlinearSolver = CMISS.Solver()
     dynamicSolver.DynamicNonlinearSolverGet(nonlinearSolver)
     nonlinearSolver.newtonJacobianCalculationType = CMISS.JacobianCalculationTypes.EQUATIONS
-    nonlinearSolver.outputType = CMISS.SolverOutputTypes.PROGRESS
-    nonlinearSolver.newtonAbsoluteTolerance = 1.0E-7
-    nonlinearSolver.newtonRelativeTolerance = 1.0E-7
-    nonlinearSolver.newtonSolutionTolerance = 1.0E-7
+    nonlinearSolver.outputType = CMISS.SolverOutputTypes.NONE
+    nonlinearSolver.newtonAbsoluteTolerance = 1.0E-8
+    nonlinearSolver.newtonRelativeTolerance = 1.0E-8
+    nonlinearSolver.newtonSolutionTolerance = 1.0E-8
     nonlinearSolver.newtonMaximumFunctionEvaluations = 10000
     linearSolver = CMISS.Solver()
     nonlinearSolver.NewtonLinearSolverGet(linearSolver)
@@ -384,34 +456,95 @@ def solveProblem(transient,viscosity,density,offset,amplitude,period):
     # Create boundary conditions
     boundaryConditions = CMISS.BoundaryConditions()
     solverEquations.BoundaryConditionsCreateStart(boundaryConditions)
+    # Define 0-value reference pressure at a node
+    referenceNode = outletNodes[0]
+
     # Wall boundary nodes u = 0 (no-slip)
     value=0.0
     for nodeNumber in wallNodes:
-        nodeDomain=decomposition.NodeDomainGet(nodeNumber,meshComponentQuadratic)
-        if (nodeDomain == computationalNodeNumber):
-            for component in range(numberOfDimensions):
-                componentId = component + 1
-                boundaryConditions.SetNode(dependentField,CMISS.FieldVariableTypes.U,
-                                           1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
-                                           nodeNumber,componentId,CMISS.BoundaryConditionsTypes.FIXED,value)
-    # Note: inlet/outlet nodes are pressure-based so only defined on linear nodes
+        if (nodeNumber <= numberOfNodes): 
+            nodeDomain=decomposition.NodeDomainGet(nodeNumber,meshComponent1)
+            if (nodeDomain == computationalNodeNumber):
+                for component in range(numberOfDimensions):
+                    componentId = component + 1
+                    boundaryConditions.SetNode(dependentField,CMISS.FieldVariableTypes.U,
+                                               1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
+                                               nodeNumber,componentId,CMISS.BoundaryConditionsTypes.FIXED,value)
+    #========================
+    # O u t l e t
+    #========================
     # outlet boundary nodes p = 0 
     value=0.0
     for nodeNumber in outletNodes:
-        nodeDomain=decomposition.NodeDomainGet(nodeNumber,meshComponentLinear)
-        if (nodeDomain == computationalNodeNumber):
-            boundaryConditions.SetNode(dependentField,CMISS.FieldVariableTypes.U,
-                                       1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
-                                       nodeNumber,4,CMISS.BoundaryConditionsTypes.FIXED_OUTLET,value)
-    # inlet boundary nodes p = f(t) - will be updated in pre-solve
+        if (nodeNumber <= numberOfNodes): 
+            nodeDomain=decomposition.NodeDomainGet(nodeNumber,meshComponent2)
+            if (nodeDomain == computationalNodeNumber):
+                if (nodeNumber == referenceNode):
+                    refPressure = value
+                    boundaryConditions.SetNode(dependentField,CMISS.FieldVariableTypes.U,
+                                               1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
+                                               nodeNumber,4,CMISS.BoundaryConditionsTypes.FIXED,refPressure)
+                else:
+                    boundaryConditions.SetNode(dependentField,CMISS.FieldVariableTypes.U,
+                                               1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
+                                               nodeNumber,4,CMISS.BoundaryConditionsTypes.PRESSURE,value)
+    # Outlet boundary elements
+    for element in range(numberOfOutletElements):
+        elementNumber = outletElements[element]
+        elementDomain=decomposition.ElementDomainGet(elementNumber)
+        boundaryID = 3.0
+        if (elementDomain == computationalNodeNumber):
+            # Boundary ID: used to identify common faces for flowrate calculation
+            equationsSetField.ParameterSetUpdateElementDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,
+                                                          elementNumber,8,boundaryID)
+            # Boundary Type: workaround since we don't have access to BC object during FE evaluation routines
+            equationsSetField.ParameterSetUpdateElementDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,
+                                                          elementNumber,9,CMISS.BoundaryConditionsTypes.PRESSURE)
+            # Boundary normal
+            for component in range(numberOfDimensions):
+                componentId = component + 5
+                value = normalOutlet[component]
+                equationsSetField.ParameterSetUpdateElementDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,
+                                                              elementNumber,componentId,value)
+
+    #========================
+    # I n l e t
+    #========================
+    # Inlet boundary nodes p = f(t) - will be updated in pre-solve
     value = 0.0
     for nodeNumber in inletNodes:
-        nodeDomain=decomposition.NodeDomainGet(nodeNumber,meshComponentQuadratic)
-        if (nodeDomain == computationalNodeNumber):
-            boundaryConditions.SetNode(dependentField,CMISS.FieldVariableTypes.U,
-                                       1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
-                                       nodeNumber,4,CMISS.BoundaryConditionsTypes.FIXED_INLET,value)
+        if (nodeNumber <= numberOfNodes): 
+            nodeDomain=decomposition.NodeDomainGet(nodeNumber,meshComponent1)
+            if (nodeDomain == computationalNodeNumber):
+                if (nodeNumber == referenceNode):
+                    value = 1.0
+                    boundaryConditions.SetNode(dependentField,CMISS.FieldVariableTypes.U,
+                                               1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
+                                               nodeNumber,4,CMISS.BoundaryConditionsTypes.FIXED_INLET,value)
+                else:
+                    boundaryConditions.SetNode(dependentField,CMISS.FieldVariableTypes.U,
+                                               1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
+                                               nodeNumber,4,CMISS.BoundaryConditionsTypes.PRESSURE,value)
+
     solverEquations.BoundaryConditionsCreateFinish()
+    # Inlet boundary elements
+    for element in range(numberOfInletElements):
+        elementNumber = inletElements[element]
+        elementDomain=decomposition.ElementDomainGet(elementNumber)
+        boundaryID = 2.0
+        if (elementDomain == computationalNodeNumber):
+            # Boundary ID
+            equationsSetField.ParameterSetUpdateElementDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,
+                                                          elementNumber,8,boundaryID)
+            # Boundary Type: workaround since we don't have access to BC object during FE evaluation routines
+            equationsSetField.ParameterSetUpdateElementDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,
+                                                          elementNumber,9,CMISS.BoundaryConditionsTypes.PRESSURE)
+            # Boundary normal
+            for component in range(numberOfDimensions):
+                componentId = component + 5
+                value = normalInlet[component]
+                equationsSetField.ParameterSetUpdateElementDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,
+                                                              elementNumber,componentId,value)
 
     # Solve the problem
     print("solving problem...")
@@ -435,11 +568,11 @@ offset = 0.0
 density = 1.0
 amplitude = 1.0
 period = math.pi/2.
-timeIncrements = [period/20.0]#[period/400.]
-womersleyNumbers = [1.0]#[10.0]
+timeIncrements = [period/1000.]
+womersleyNumbers = [10.0]
 startTime = 0.0
-stopTime = period + 0.000001
-outputFrequency = 1
+stopTime = 4.0*period + 0.000001
+outputFrequency = 10
 
 for timeIncrement in timeIncrements:
     
@@ -448,7 +581,7 @@ for timeIncrement in timeIncrements:
         # determine w using viscosity:density ratio (fixed angular frequency and radius)
         viscosity = density/(w**2.0)
         # make a new output directory if necessary
-        outputDirectory = "./output/Wom" + str(w) + 'Dt' + str(round(timeIncrement,5)) + meshName + "/"
+        outputDirectory = "./output/Wom" + str(w) + 'Dt' + str(round(timeIncrement,5)) + meshName + "_RBS_Quadratic_FixOutlet_Beta0_Init_RHS/"
         try:
             os.makedirs(outputDirectory)
         except OSError, e:
