@@ -383,11 +383,26 @@ elementResolutions = [20]
 ReynoldsNumbers = [2500]
 lidVelocity = [1.0,0.0]
 density = 1.0
+# Note: viscosity will be calculated based on specified Reynolds number
 RBSTypes = [True,False]
 fdJacobian = False
 analyticLidVelocity = True
-runtimes = []
 
+#==========================================================
+
+
+#Check for command line arguments- used for nightly test on GFEM & RBS code
+if len(sys.argv) > 1:
+    if len(sys.argv) > 2:
+        sys.exit('Error: too many arguments- currently only accepting 1 option: choose "RBS" or "GFEM"')
+    if sys.argv[1] == 'RBS':
+        RBSTypes = [True]
+    elif sys.argv[1] == 'GFEM':
+        RBSTypes = [False]
+    else:
+        sys.exit('Error: unknown argument- currently only accepting 1 option: choose "RBS" or "GFEM"')
+
+runtimes = []
 for elemRes in elementResolutions:
     for Re in ReynoldsNumbers:
         for RBS in RBSTypes:
