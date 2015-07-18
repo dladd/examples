@@ -51,11 +51,8 @@
 import sys, os
 sys.path.append(os.sep.join((os.environ['OPENCMISS_ROOT'],'cm','bindings','python')))
 
-import numpy
 import math
-import gzip
 import time
-import exfile
 
 # Intialise OpenCMISS
 from opencmiss import CMISS
