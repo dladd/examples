@@ -112,7 +112,7 @@ linearBasis.CreateFinish()
 
 
 def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,
-              outputFilename,transient,supg,fdJacobian,analytic):
+              outputFilename,transient,RBS,fdJacobian,analytic):
     """ Sets up the lid driven cavity problem and solves with the provided parameter values
 
           Square Lid-Driven Cavity
@@ -132,7 +132,7 @@ def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,
     generatedMesh = CMISS.GeneratedMesh()
     generatedMesh.CreateStart(generatedMeshUserNumber,region)
     generatedMesh.type = CMISS.GeneratedMeshTypes.REGULAR
-    if supg:
+    if RBS:
         generatedMesh.basis = [quadraticBasis,linearBasis]
 #        generatedMesh.basis = [quadraticBasis,quadraticBasis]
 #        generatedMesh.basis = [linearBasis,linearBasis]
@@ -165,11 +165,11 @@ def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,
     # Create standard Navier-Stokes equations set
     equationsSetField = CMISS.Field()
     equationsSet = CMISS.EquationsSet()
-    if supg:
+    if RBS:
         equationsSet.CreateStart(equationsSetUserNumber,region,geometricField,
                 CMISS.EquationsSetClasses.FLUID_MECHANICS,
                 CMISS.EquationsSetTypes.NAVIER_STOKES_EQUATION,
-                CMISS.EquationsSetSubtypes.TransientRBS_NAVIER_STOKES,
+                CMISS.EquationsSetSubtypes.TRANSIENT_RBS_NAVIER_STOKES,
                 equationsSetFieldUserNumber, equationsSetField)
     else:
         equationsSet.CreateStart(equationsSetUserNumber,region,geometricField,
@@ -179,7 +179,7 @@ def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,
                 equationsSetFieldUserNumber, equationsSetField)
     equationsSet.CreateFinish()
 
-    if supg:
+    if RBS:
         # Set max CFL number (default 1.0)
         equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U1,
                                                       CMISS.FieldParameterSetTypes.VALUES,2,1.0E20)
@@ -225,7 +225,7 @@ def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,
         startSine = 0.0
         stopSine = rampPeriod
         analyticField = CMISS.Field()
-        equationsSet.AnalyticCreateStart(CMISS.NavierStokesAnalyticFunctionTypes.FlowrateSinusoid,analyticFieldUserNumber,analyticField)
+        equationsSet.AnalyticCreateStart(CMISS.NavierStokesAnalyticFunctionTypes.SINUSOID,analyticFieldUserNumber,analyticField)
         equationsSet.AnalyticCreateFinish()
         analyticParameters = [1.0,0.0,0.0,0.0,amplitude,yOffset,frequency,phaseShift,startSine,stopSine]
 
@@ -239,10 +239,10 @@ def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,
     # Create Navier-Stokes problem
     problem = CMISS.Problem()
     problem.CreateStart(problemUserNumber)
-    if supg:
+    if RBS:
         problem.SpecificationSet(CMISS.ProblemClasses.FLUID_MECHANICS,
                                  CMISS.ProblemTypes.NAVIER_STOKES_EQUATION,
-                                 CMISS.ProblemSubTypes.TransientRBS_NAVIER_STOKES)
+                                 CMISS.ProblemSubTypes.TRANSIENT_RBS_NAVIER_STOKES)
     else:
         problem.SpecificationSet(CMISS.ProblemClasses.FLUID_MECHANICS,
                                  CMISS.ProblemTypes.NAVIER_STOKES_EQUATION,
@@ -367,7 +367,7 @@ def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,
     nodes.Destroy()
     mesh.Destroy()
     geometricField.Destroy()
-    if supg:
+    if RBS:
         equationsSetField.Destroy()
     if analytic:
         analyticField.Destroy()
@@ -383,24 +383,25 @@ def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,
 
 dimensions = [1.0,1.0]
 elementResolutions = [20]
-ReynoldsNumbers = [100,3200]
+ReynoldsNumbers = [2500]
 lidVelocity = [1.0,0.0]
 density = 1.0
-supgTypes = [True,False]
+RBSTypes = [True,False]
 fdJacobian = False
 analyticLidVelocity = True
+runtimes = []
 
 for elemRes in elementResolutions:
     for Re in ReynoldsNumbers:
-        for supg in supgTypes:
+        for RBS in RBSTypes:
 
             elementResolution = [elemRes,elemRes]
             viscosity = density*lidVelocity[0]/Re
 
             # transient parameters: startTime,stopTime,timeIncrement,outputFrequency
-            transient = [0.0,300.000001,0.1,1000000]
-            if supg:    
-                outputDirectory = "./output/Re" + str(Re) + "Elem" +str(elementResolution[0])+"x" +str(elementResolution[1]) + "_SUPG/"
+            transient = [0.0,60.000001,0.1,100000]
+            if RBS:    
+                outputDirectory = "./output/Re" + str(Re) + "Elem" +str(elementResolution[0])+"x" +str(elementResolution[1]) + "_RBS/"
             else:
                 outputDirectory = "./output/Re" + str(Re) + "Elem" +str(elementResolution[0])+"x" +str(elementResolution[1]) + "_GFEM/"
 
@@ -418,24 +419,30 @@ for elemRes in elementResolutions:
                 print('---------------------------------------------------------------------')
                 print('    Reynolds number (Re): ' + str(Re))
                 print('    ElementResolution   : ' + str(elementResolution))
-                print('    SUPG                : ' + str(supg))
+                print('    RBS                 : ' + str(RBS))
                 print('    Transient parameters: ' + str(transient))
                 print('    FD Jacobian: ' + str(fdJacobian))
             start = time.time()
             LidDriven(elementResolution,dimensions,lidVelocity,viscosity,density,
-                      outputFile,transient,supg,fdJacobian,analyticLidVelocity)
+                      outputFile,transient,RBS,fdJacobian,analyticLidVelocity)
             end = time.time()
             runtime = end - start
+            runtimes.append(runtime)
             if computationalNodeNumber == 0:
-                print('Finished solve with parameters: ')
-                print('---------------------------------------------------------------------')
-                print('    Reynolds number (Re): ' + str(Re))
-                print('    ElementResolution   : ' + str(elementResolution))
-                print('    SUPG                : ' + str(supg))
-                print('    Transient parameters: ' + str(transient))
-                print('    FD Jacobian         : ' + str(fdJacobian))
-                print('    output results to   : ' + outputFile)
-                print('    Runtime             : ' + str(runtime))
+                runInfo = ''
+                runInfo += 'Successfully finished solve with parameters: ' + '\n'
+                runInfo += '---------------------------------------------------------------------' + '\n'
+                runInfo += '    Reynolds number (Re): ' + str(Re) + '\n'
+                runInfo += '    ElementResolution   : ' + str(elementResolution) + '\n'
+                runInfo += '    RBS                 : ' + str(RBS) + '\n'
+                runInfo += '    Transient parameters: ' + str(transient) + '\n'
+                runInfo += '    FD Jacobian         : ' + str(fdJacobian) + '\n'
+                runInfo += '    output results to   : ' + outputFile + '\n'
+                runInfo += '    Runtime             : ' + str(runtime) + '\n'
+                print(runInfo)
+                f = open(outputDirectory+"RunInfo.txt","w")
+                f.write(runInfo)
+                f.close() 
 
 CMISS.Finalise()
 

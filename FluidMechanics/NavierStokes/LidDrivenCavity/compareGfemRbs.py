@@ -200,8 +200,8 @@ def readExnodeFile(filename,info,nodeData,totalNumberOfNodes):
 # C o n t r o l   P a n e l
 #=================================================================
 
-ReynoldsNumbers = [100,100,400,400,1000,1000,2500,2500,3200,3200,5000]#,5000,5000]
-#ReynoldsNumbers = [100,100,1000]#,1000,5000]#,5000,5000]
+#ReynoldsNumbers = [100,100,400,400,1000,1000,2500,2500,3200,3200,5000]#,5000,5000]
+ReynoldsNumbers = [2500,2500]
 #ReynoldsNumbers = [5000]
 #ReynoldsNumbers = [100,400,1000,2500,3200,5000]
 # 441=10Elem, 1681=20Elem, 3721=30Elem, 6561=40Elem 14641 = 60Elem, 
@@ -212,13 +212,13 @@ compareSolutions = ['ghia.txt','erturk.txt','botella.txt']
 compareMarkers = ['yo','gs','c^']
 compareNames = ['Ghia','Erturk','Botella']
 #numberOfProcessors = [4,4,4,4,4,4,4,4,4,4,4,4]
-numberOfProcessors = [2]*11
-SUPG = [True,False]*5
-SUPG.append(True)
+numberOfProcessors = [1]*2
+RBS = [True,False]
+#RBS.append(True)
 figsDir = "/hpc/dlad004/thesis/Thesis/figures/cfd/"
 writeToFigs = False
-plotLegend = True
-ReLabels = True
+plotLegend = False
+ReLabels = False
 
 #=================================================================
 #=================================================================
@@ -227,22 +227,22 @@ ReLabels = True
 nodeData = numpy.zeros([0,0,0,0])
 numberOfRe = len(ReynoldsNumbers)
 
-if any(SUPG):
-    fieldSUPG = fieldInfo()        
-    path = "./output/Re" + str(ReynoldsNumbers[0]) + 'Elem' + str(meshResolution[0]) + 'x' + str(meshResolution[1]) + '_SUPG/'
+if any(RBS):
+    fieldRBS = fieldInfo()        
+    path = "./output/Re" + str(ReynoldsNumbers[0]) + 'Elem' + str(meshResolution[0]) + 'x' + str(meshResolution[1]) + '_RBS/'
     filename = path + '/LidDrivenCavity.part0.exnode'
     try:
         with open(filename):
             firstFile = open(filename,"r")
             line=firstFile.readline()
-            fieldSUPG.group=findBetween(line, ' Group name: ', '\n')
-            readFirstHeader(firstFile,fieldSUPG)
+            fieldRBS.group=findBetween(line, ' Group name: ', '\n')
+            readFirstHeader(firstFile,fieldRBS)
             firstFile.close()
     except IOError:
         print ('Could not open file: ' + filename)
-    nodeDataSUPG = numpy.zeros([numberOfRe,totalNumberOfNodes,fieldSUPG.numberOfFields,max(fieldSUPG.numberOfFieldComponents)])
+    nodeDataRBS = numpy.zeros([numberOfRe,totalNumberOfNodes,fieldRBS.numberOfFields,max(fieldRBS.numberOfFieldComponents)])
 
-if not all(SUPG):
+if not all(RBS):
     fieldGFEM = fieldInfo()        
     path = "./output/Re" + str(ReynoldsNumbers[0]) + 'Elem' + str(meshResolution[0]) + 'x' + str(meshResolution[1]) + '_GFEM/'
     filename = path + '/LidDrivenCavity.part0.exnode'
@@ -258,26 +258,26 @@ if not all(SUPG):
     nodeDataGFEM = numpy.zeros([numberOfRe,totalNumberOfNodes,fieldGFEM.numberOfFields,max(fieldGFEM.numberOfFieldComponents)])
 
 i = -1
-#print(nodeDataSUPG[0,431,0,1])
+#print(nodeDataRBS[0,431,0,1])
 for Re in ReynoldsNumbers:
     i+=1
     print('Reading data for Re ' + str(Re))
     for proc in range(numberOfProcessors[i]):
-        if SUPG[i]:
-            path = "./output/Re" + str(Re) + 'Elem' + str(meshResolution[0]) + 'x' + str(meshResolution[1]) + '_SUPG/'
+        if RBS[i]:
+            path = "./output/Re" + str(Re) + 'Elem' + str(meshResolution[0]) + 'x' + str(meshResolution[1]) + '_RBS/'
             filename = path + 'LidDrivenCavity.part' + str(proc) +'.exnode'
-            importNodeData = numpy.zeros([totalNumberOfNodes,fieldSUPG.numberOfFields,max(fieldSUPG.numberOfFieldComponents)])
-            readExnodeFile(filename,fieldSUPG,importNodeData,totalNumberOfNodes)
+            importNodeData = numpy.zeros([totalNumberOfNodes,fieldRBS.numberOfFields,max(fieldRBS.numberOfFieldComponents)])
+            readExnodeFile(filename,fieldRBS,importNodeData,totalNumberOfNodes)
             #print(importNodeData[:,0,1])
-            nodeDataSUPG[i,:,:,:] += importNodeData[:,:,:]
-            #print(nodeDataSUPG[i,431,0,1])
+            nodeDataRBS[i,:,:,:] += importNodeData[:,:,:]
+            #print(nodeDataRBS[i,431,0,1])
         else:
             path = "./output/Re" + str(Re) + 'Elem' + str(meshResolution[0]) + 'x' + str(meshResolution[1]) + '_GFEM/'
             filename = path + 'LidDrivenCavity.part' + str(proc) +'.exnode'
             importNodeData = numpy.zeros([totalNumberOfNodes,fieldGFEM.numberOfFields,max(fieldGFEM.numberOfFieldComponents)])
             readExnodeFile(filename,fieldGFEM,importNodeData,totalNumberOfNodes)
             nodeDataGFEM[i,:,:,:] += importNodeData[:,:,:]
-#print(nodeDataSUPG[i,431,0,1])
+#print(nodeDataRBS[i,431,0,1])
 
         
 tolerance = 1e-8
@@ -288,17 +288,17 @@ plotVLineU = numpy.zeros([numberOfRe,int(math.sqrt(totalNumberOfNodes))])
 
 # Read centerline data
 i = -1
-for s in SUPG:
+for s in RBS:
     i+=1
     centerNodeNum = -1
     
     if s:
         dependentFieldIndex = 2
         for node in xrange(totalNumberOfNodes):
-            if nodeDataSUPG[i,node,0,0] > (0.5 - tolerance) and nodeDataSUPG[i,node,0,0] < (0.5 + tolerance):
+            if nodeDataRBS[i,node,0,0] > (0.5 - tolerance) and nodeDataRBS[i,node,0,0] < (0.5 + tolerance):
                 centerNodeNum += 1
-                vLineY[i,centerNodeNum] = nodeDataSUPG[i,node,0,1]
-                vLineU[i,centerNodeNum] = nodeDataSUPG[i,node,dependentFieldIndex,0]
+                vLineY[i,centerNodeNum] = nodeDataRBS[i,node,0,1]
+                vLineU[i,centerNodeNum] = nodeDataRBS[i,node,dependentFieldIndex,0]
     else:
         dependentFieldIndex = 1
         for node in xrange(totalNumberOfNodes):
@@ -346,7 +346,7 @@ if plotData:
             #print('Re: ' + str(Re))
             #print('Reynolds#: ' + str(ReynoldsNumbers[reIndex-1]))
             #if Re == ReynoldsNumbers[reIndex-1]:
-            if not SUPG[reIndex]:
+            if not RBS[reIndex]:
                 newRe = False
             else:
                 numberOfUniqueRe+=1
@@ -375,7 +375,7 @@ if plotData:
         else:
             plotVLineU[reIndex,:] = vLineU[reIndex,:] - spacing*(reIndex-1)
 
-        if SUPG[reIndex]:
+        if RBS[reIndex]:
             if labSupg:
                 pylab.plot(plotVLineU[reIndex,:],vLineY[reIndex,:],'-r',alpha=0.5)
             else:
