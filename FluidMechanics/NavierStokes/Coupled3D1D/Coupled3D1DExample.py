@@ -93,11 +93,11 @@ viscosity= 0.004      # Viscosity   (Pa.s)
 G0   = 0.0        # Gravitational acceleration (m/s2)
 Pext = 0.0        # External pressure (Pa)
 
-couplingTolerance3D1D = 1.0E-6
+couplingTolerance3D1D = 1.0E-4
 startTime = 0.0
-stopTime = 10.000001 
+stopTime = 0.200001 
 timeIncrement = 0.001
-outputFrequency = 1
+outputFrequency = 10
 totalLength = 20.0
 radius = 0.5
 
@@ -107,11 +107,11 @@ radius = 0.5
 length3D = 10.0
 radius3D = radius
 couplingNode3D = 184
-quadraticMesh = False
+quadraticMesh = True
 inputDir = "./input/"
 meshName = "hexCylinder140"
 analyticInflow = True
-inletValue = 1.0
+inletValue = 0.001#1.0
 inletCoeff = [0.0,1.0,0.0,0.0]
 
 #-------------------------------------------
@@ -119,8 +119,6 @@ inletCoeff = [0.0,1.0,0.0,0.0]
 #-------------------------------------------
 numberOfNodes1D = 5
 numberOfElements1D = 2
-couplingNode1D = 1
-outletNode1D = 5
 checkTimestepStability = False
 couplingTolerance1D = 1.0E10
 
@@ -378,7 +376,7 @@ fieldmlInfo.Finalise()
 #outletNode1D = couplingNode1D + numberOfNodes1D - 1
 
 # Create a RC coordinate system
-sameCoordinates = False
+sameCoordinates = True
 if sameCoordinates:
     coordinateSystem1D = coordinateSystem3D
 else:
@@ -392,7 +390,11 @@ else:
 sameRegion = False
 if sameRegion:
     region1D = region3D
+    couplingNode1D = numberOfNodes3D + 1
+    outletNode1D = numberOfNodes3D + numberOfNodes1D
 else:
+    couplingNode1D = 1
+    outletNode1D = numberOfNodes1D
     region1D = CMISS.Region()
     region1D.CreateStart(region1DUserNumber,CMISS.WorldRegion)
     region1D.label = "1DConduit"
@@ -437,7 +439,7 @@ mesh1D.CreateFinish()
 # Create a decomposition for the mesh
 decomposition1D = CMISS.Decomposition()
 decomposition1D.CreateStart(decomposition1DUserNumber,mesh1D)
-decomposition1D.type = CMISS.DecompositionTypes.CALCULATED
+decomposition1D.type = CMISS.DecompositionTypes.EVERY
 decomposition1D.numberOfDomains = numberOfComputationalNodes
 decomposition1D.CreateFinish()
 
@@ -550,7 +552,7 @@ equationsSet1DC.DependentCreateStart(dependentField1DUserNumber,dependentField1D
 dependentField1DNS.VariableLabelSet(CMISS.FieldVariableTypes.U,'Flow_and_Area')
 dependentField1DNS.VariableLabelSet(CMISS.FieldVariableTypes.DELUDELN,'Derivatives')
 dependentField1DNS.VariableLabelSet(CMISS.FieldVariableTypes.V,'Characteristics')
-dependentField1DNS.VariableLabelSet(CMISS.FieldVariableTypes.U2,'Pressure1D')
+dependentField1DNS.VariableLabelSet(CMISS.FieldVariableTypes.U2,'Pressure_Stress_Flow')
 # Flow & Area
 meshComponentNumber=1
 dependentField1DNS.ComponentMeshComponentSet(CMISS.FieldVariableTypes.U,1,meshComponentNumber)
@@ -574,21 +576,21 @@ dependentField1DNS.ParameterSetCreate(CMISS.FieldVariableTypes.U,CMISS.FieldPara
 # Initialise the dependent field variables
 versionIdx = 1
 for nodeIdx in range (couplingNode1D,couplingNode1D+numberOfNodes1D):
-    nodeDomain = decomposition1D.NodeDomainGet(nodeIdx,meshComponentNumber)
-    if (nodeDomain == computationalNodeNumber):
-        dependentField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,
-                                                    versionIdx,1,nodeIdx,1,Q0)
-        dependentField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,
-                                                    versionIdx,1,nodeIdx,2,A0)
-        dependentField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.PREVIOUS_VALUES,
-                                                    versionIdx,1,nodeIdx,1,Q0)
-        dependentField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.PREVIOUS_VALUES,
-                                                    versionIdx,1,nodeIdx,2,A0)
-        # delUdelN variables
-        dependentField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.DELUDELN,CMISS.FieldParameterSetTypes.VALUES,
-                                                    versionIdx,1,nodeIdx,1,dQ)
-        dependentField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.DELUDELN,CMISS.FieldParameterSetTypes.VALUES,
-                                                    versionIdx,1,nodeIdx,2,dA)
+    #nodeDomain = decomposition1D.NodeDomainGet(nodeIdx,meshComponentNumber)
+    #if (nodeDomain == computationalNodeNumber):
+    dependentField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,
+                                                versionIdx,1,nodeIdx,1,Q0)
+    dependentField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,
+                                                versionIdx,1,nodeIdx,2,A0)
+    dependentField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.PREVIOUS_VALUES,
+                                                versionIdx,1,nodeIdx,1,Q0)
+    dependentField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.PREVIOUS_VALUES,
+                                                versionIdx,1,nodeIdx,2,A0)
+    # delUdelN variables
+    dependentField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.DELUDELN,CMISS.FieldParameterSetTypes.VALUES,
+                                                versionIdx,1,nodeIdx,1,dQ)
+    dependentField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.DELUDELN,CMISS.FieldParameterSetTypes.VALUES,
+                                                versionIdx,1,nodeIdx,2,dA)
 # Finish the parameter update
 dependentField1DNS.ParameterSetUpdateStart(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES)
 dependentField1DNS.ParameterSetUpdateFinish(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES)   
@@ -616,9 +618,9 @@ if analyticInflow:
     frequency = math.pi/(rampPeriod)
     inflowAmplitude = 0.5*inletValue
     yOffset = 0.5*inletValue
-    phaseShift = -math.pi/2.0
+    phaseShift = -math.pi/2.0 
     startSine = 0.0
-    stopSine = rampPeriod
+    stopSine = stopTime#rampPeriod
 
     analyticField = CMISS.Field()
     equationsSet3D.AnalyticCreateStart(CMISS.NavierStokesAnalyticFunctionTypes.SINUSOID,analyticField3DUserNumber,analyticField)
@@ -629,8 +631,10 @@ if analyticInflow:
     for parameter in analyticParameters:
         parameterNumber += 1
         for nodeNumber in inletNodes3D:
-            analyticField.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,1,1,
-                                                   nodeNumber,parameterNumber,parameter)
+            nodeDomain = decomposition3D.NodeDomainGet(nodeNumber,meshComponentNumber)
+            if (nodeDomain == computationalNodeNumber):
+                analyticField.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,1,1,
+                                                       nodeNumber,parameterNumber,parameter)
 
 # -----------------------------------------------
 #  1D
@@ -669,14 +673,14 @@ materialsField1DNS.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,
 # Set node-based materials
 versionIdx = 1
 for nodeIdx in range (couplingNode1D,couplingNode1D+numberOfNodes1D):
-    nodeDomain = decomposition1D.NodeDomainGet(nodeIdx,meshComponentNumber)
-    if (nodeDomain == computationalNodeNumber):
-        materialsField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,
-                                                    versionIdx,1,nodeIdx,1,A0)
-        materialsField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,
-                                                    versionIdx,1,nodeIdx,2,E)
-        materialsField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,
-                                                    versionIdx,1,nodeIdx,3,H)
+    #nodeDomain = decomposition1D.NodeDomainGet(nodeIdx,meshComponentNumber)
+    #if (nodeDomain == computationalNodeNumber):
+    materialsField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,
+                                                versionIdx,1,nodeIdx,1,A0)
+    materialsField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,
+                                                versionIdx,1,nodeIdx,2,E)
+    materialsField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,
+                                                versionIdx,1,nodeIdx,3,H)
 
 # Finish the parameter update
 materialsField1DNS.ParameterSetUpdateStart(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES)
@@ -706,18 +710,18 @@ equationsSet1DNS.IndependentCreateFinish()
 # Set the normal wave direction for inlet and outlet
 # Inlet
 versionIdx = 1
-nodeDomain = decomposition1D.NodeDomainGet(couplingNode1D,meshComponentNumber)
-if (nodeDomain == computationalNodeNumber):
-    # Incoming (parent) only - reflected wave will be 0
-    independentField1D.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,
-                                                versionIdx,1,couplingNode1D,2,-1.0)
+#nodeDomain = decomposition1D.NodeDomainGet(couplingNode1D,meshComponentNumber)
+#if (nodeDomain == computationalNodeNumber):
+# Incoming (parent) only - reflected wave will be 0
+independentField1D.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,
+                                            versionIdx,1,couplingNode1D,2,-1.0)
 # Outlet
 versionIdx = 1
-nodeDomain = decomposition1D.NodeDomainGet(outletNode1D,meshComponentNumber)
-if (nodeDomain == computationalNodeNumber):
-    # Outgoing (parent) only - reflected wave will be 0
-    independentField1D.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,
-                                                versionIdx,1,outletNode1D,1,1.0)
+#nodeDomain = decomposition1D.NodeDomainGet(outletNode1D,meshComponentNumber)
+#if (nodeDomain == computationalNodeNumber):
+# Outgoing (parent) only - reflected wave will be 0
+independentField1D.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,
+                                            versionIdx,1,outletNode1D,1,1.0)
 # Finish the parameter update
 independentField1D.ParameterSetUpdateStart(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES)
 independentField1D.ParameterSetUpdateFinish(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES)
@@ -838,7 +842,7 @@ linearSolver1DC.LinearIterativeGMRESRestartSet(3000)
 dynamicSolver1DNS = CMISS.Solver()
 problem.SolverGet([1,1,CMISS.ControlLoopIdentifiers.NODE],2,dynamicSolver1DNS)
 dynamicSolver1DNS.OutputTypeSet(CMISS.SolverOutputTypes.NONE)
-dynamicSolver1DNS.dynamicTheta = [0.5]
+dynamicSolver1DNS.dynamicTheta = [1.0]
 # Get the dynamic nonlinear solver
 nonlinearSolver1DNS = CMISS.Solver()
 dynamicSolver1DNS.DynamicNonlinearSolverGet(nonlinearSolver1DNS)
@@ -847,7 +851,7 @@ nonlinearSolver1DNS.NewtonJacobianCalculationTypeSet(CMISS.JacobianCalculationTy
 nonlinearSolver1DNS.OutputTypeSet(CMISS.SolverOutputTypes.NONE)
 # Set the solver settings
 nonlinearSolver1DNS.NewtonAbsoluteToleranceSet(1.0E-8)
-nonlinearSolver1DNS.NewtonSolutionToleranceSet(1.0E-5)
+nonlinearSolver1DNS.NewtonSolutionToleranceSet(1.0E-8)
 nonlinearSolver1DNS.NewtonRelativeToleranceSet(1.0E-5)
 # Get the dynamic nonlinear linear solver
 linearSolver1DNS = CMISS.Solver()
@@ -868,14 +872,14 @@ linearSolver1DNS.LinearIterativeGMRESRestartSet(3000)
 dynamicSolver3D = CMISS.Solver()
 problem.SolverGet([1,2,CMISS.ControlLoopIdentifiers.NODE],1,dynamicSolver3D)
 dynamicSolver3D.outputType = CMISS.SolverOutputTypes.NONE
-dynamicSolver3D.dynamicTheta = [0.5]
+dynamicSolver3D.dynamicTheta = [1.0]
 nonlinearSolver3D = CMISS.Solver()
 dynamicSolver3D.DynamicNonlinearSolverGet(nonlinearSolver3D)
 nonlinearSolver3D.newtonJacobianCalculationType = CMISS.JacobianCalculationTypes.EQUATIONS
 nonlinearSolver3D.outputType = CMISS.SolverOutputTypes.NONE
-nonlinearSolver3D.newtonAbsoluteTolerance = 1.0E-7
-nonlinearSolver3D.newtonRelativeTolerance = 1.0E-7
-nonlinearSolver3D.newtonSolutionTolerance = 1.0E-7
+nonlinearSolver3D.newtonAbsoluteTolerance = 1.0E-8
+nonlinearSolver3D.newtonRelativeTolerance = 1.0E-8
+nonlinearSolver3D.newtonSolutionTolerance = 1.0E-8
 nonlinearSolver3D.newtonMaximumFunctionEvaluations = 10000
 linearSolver3D = CMISS.Solver()
 nonlinearSolver3D.NewtonLinearSolverGet(linearSolver3D)
@@ -963,6 +967,7 @@ for element in range(numberOfOutletElements3D):
     elementDomain=decomposition3D.ElementDomainGet(elementNumber)
     boundaryID = 3.0
     if (elementDomain == computationalNodeNumber):
+        area3D = 0.707106781
         # Boundary ID: used to identify common faces for flowrate calculation
         equationsSetField3D.ParameterSetUpdateElementDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,
                                                       elementNumber,8,boundaryID)
@@ -983,7 +988,7 @@ for element in range(numberOfOutletElements3D):
 #--------------
 # inlet boundary nodes p = f(t) - will be updated in pre-solve
 value = 0.0
-if inletCoeff[3] > 0.01:
+if abs(inletCoeff[3]) > 0.01:
     boundaryType = CMISS.BoundaryConditionsTypes.PRESSURE
 else:
     boundaryType = CMISS.BoundaryConditionsTypes.FIXED_INLET
@@ -992,7 +997,7 @@ for nodeNumber in inletNodes3D:
     nodeDomain=decomposition3D.NodeDomainGet(nodeNumber,meshComponent3DVelocity)
     if (nodeDomain == computationalNodeNumber):
         for component in range(4):
-            if inletCoeff[component] > 0.01:
+            if abs(inletCoeff[component]) > 0.01:
                 componentIdx = component + 1
                 if (componentIdx < 4) and (nodeNumber in wallNodes3D):
                     # skip wall nodes if specifying velocity BC
