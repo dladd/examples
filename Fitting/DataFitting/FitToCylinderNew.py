@@ -202,6 +202,13 @@ print("options: "+ str(options))
 if (abs(SNR) > 0.0001):
     addNoise = True
 
+meshTypes = {
+    'hexCylinder7Linear' : 'Lin Hex',
+    'hexCylinder7Quadratic' : 'Quad Hex',
+    'tetCyl2Linear' : 'Lin Tet',
+    'tetCyl2Quadratic' : 'Quad Tet',
+}
+
 # Set up mesh
 if (tetMesh):
     if (quadraticMesh):
@@ -509,13 +516,13 @@ else:
                                            CMISS.FieldParameterSetTypes.VALUES)
     fieldmlInfo.Finalise()
 
-# Export mesh geometry
-fields = CMISS.Fields()
-fields.CreateRegion(region)
-fields.NodesExport("Geometry","FORTRAN")
-fields.ElementsExport("Geometry","FORTRAN")
-fields.Finalise()
-print("Exported Geometric Mesh")
+# # Export mesh geometry
+# fields = CMISS.Fields()
+# fields.CreateRegion(region)
+# fields.NodesExport("Geometry","FORTRAN")
+# fields.ElementsExport("Geometry","FORTRAN")
+# fields.Finalise()
+# print("Exported Geometric Mesh")
 
 #=================================================================
 # Data Projection on Geometric Field
@@ -824,22 +831,9 @@ def solveIdwWithParameters(idwParameters):
         sortedData = idwDataPointLocations[dataIndex]
         numberOfSearchFailures =0
 
-    #Simple progressbar
-    toolbarWidth = 100
-    # setup toolbar
-    sys.stdout.write("[%s]" % (" " * toolbarWidth))
-    sys.stdout.flush()
-    sys.stdout.write("\b" * (toolbarWidth+1))
-    progressIncrement = int(numberOfNodes/toolbarWidth)
-    progressIncrementNumber = 1
-
     for node in xrange(numberOfNodes):
         nodeId = node + 1
         nodeNumber = nodes.UserNumberGet(nodeId)
-        if (nodeNumber >= progressIncrement*progressIncrementNumber):
-            sys.stdout.write("-")
-            sys.stdout.flush()
-            progressIncrementNumber += 1
         meshPosition = numpy.zeros((3))
         nodeDomain=decomposition.NodeDomainGet(nodeNumber,1)
         if (nodeDomain == computationalNodeNumber):
@@ -897,10 +891,6 @@ def solveIdwWithParameters(idwParameters):
         for node in xrange(numberOfNodes):
             nodeId = node + 1
             nodeNumber = nodes.UserNumberGet(nodeId)
-            if (nodeNumber >= progressIncrement*progressIncrementNumber):
-                sys.stdout.write("-")
-                sys.stdout.flush()
-                progressIncrementNumber += 1
             meshPosition = numpy.zeros((3))
             nodeDomain=decomposition.NodeDomainGet(nodeNumber,1)
             if (nodeDomain == computationalNodeNumber):
@@ -973,22 +963,18 @@ def solveIdwWithParameters(idwParameters):
                                                           1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
                                                           nodeId,componentId,nodeVector[component])
 
-    idwMean = numpy.mean(nodeData)
+    meanVel =  numpy.apply_along_axis(numpy.mean, 0, nodeData)
+    idwMean = meanVel[axialComponent]
     print('IDW Mean: ' + str(idwMean))
     timeIdwStop = time.time()        
     timeIdw = timeIdwStop - timeIdwStart
     print("finished idw fit, time to fit: " + str(timeIdw))
 
     velocityErrors = nodeData - analyticData
-    print('velocity errors:')
-    print(velocityErrors)
     velocityNormErrors =  numpy.apply_along_axis(numpy.linalg.norm, 1, velocityErrors)
-    print('velocity norm errors:')
-    print(velocityNormErrors)
-
     idwRMSError = numpy.sqrt(numpy.mean(velocityNormErrors**2))
     sdIdw = numpy.std(velocityNormErrors)
-    #print('array lengths: ' +str(nodeData.shape) + ' '+str(analyticData.shape) + ' '+str(errorData.shape))
+
     print("P = " + str(p))
     print("Vicinity factor = " + str(vicinityFactor))
     print("node data: ")
@@ -1035,25 +1021,19 @@ if (fitIdw):
                                                           nodeNumberCmiss,componentId,value)
     else:
         if (optimise):
-            #resultIdw = optimize.fmin(solveIdwWithParameters,[p,vicinityFactor])
             ranges = (slice(1.0,3.0,0.1),slice(1.0,3.0,0.1))
-            resultIdw = optimize.brute(solveIdwWithParameters,ranges)#,xtol = 0.01)
-            #resultIdw = optimize.fmin(solveIdwWithParameters,[p,vicinityFactor])
-            #resultIdw = optimize.fmin(solveIdwWithParameters,[p,vicinityFactor])
-            #resultIdw = optimize.fmin(solveIdwWithParameters,[p])
-            #resultIdw = optimize.fmin(solveIdwWithParameters,[p])
+            resultIdw = optimize.brute(solveIdwWithParameters,ranges)
             print(resultIdw)        
             p = resultIdw[0]
             vicinityFactor = resultIdw[1]
+            idwVelRMSE = solveIdwWithParameters([p,vicinityFactor])
+
         else:
             timeIdwStart = time.time()        
-    #        idwErrorData = numpy.zeros((numberOfNodes,3))
-    #        idwErrorData = solveIdwWithParameters([p,vicinityFactor])
-            idwMean = solveIdwWithParameters([p,vicinityFactor])
+            idwVelRMSE = solveIdwWithParameters([p,vicinityFactor])
             timeIdwStop = time.time()        
             timeIdw = timeIdwStop - timeIdwStart
             print("Complete. Solve time: "+str(time))
-    #        print("error in IDW fit: " + str(idwErrorData))
 
 
 #=================================================================
@@ -1270,13 +1250,17 @@ else:
         optFolder = 'opt/'
         if fitIdw:
             if addZeroLayer:
-                optFolder += 'zeroLayer/'
+                optFolder += 'idw/zeroLayer/'
+                optErrorFile = './output/errorData/opt/idwZeroLayer.txt'
             elif setProjectionBoundariesIdw:
-                optFolder += 'projection/'
+                optFolder += 'idw/projection/'
+                optErrorFile = './output/errorData/opt/idwProjection.txt'
             else:
-                optFolder += 'none/'
+                optFolder += 'idw/none/'
+                optErrorFile = './output/errorData/opt/idwNone.txt'
         else:
-                optFolder += 'FEF/'
+                optFolder += 'fef/'
+                optErrorFile = './output/errorData/opt/fef.txt'
 
         outputDirectory += optFolder
         try:
@@ -1284,12 +1268,15 @@ else:
         except OSError, e:
             if e.errno != 17:
                 raise   
-        if fitIdw:
-            outputFile = outputDirectory + 'P' + str(round(p,3)) + 'VF'+str(round(vicinityFactor,3)) + "_DataFit_" + str(dataResolution[0]) + "_" + str(dataResolution[1]) + "_" + str(dataResolution[2])
-        else:
-            outputFile = outputDirectory + 'Tau' + str(round(tau,5)) + 'Kappa'+str(round(kappa,5)) + "_DataFit_" + str(dataResolution[0]) + "_" + str(dataResolution[1]) + "_" + str(dataResolution[2])
-        print('outputting to file ' +outputFile)
+        outputFile = outputDirectory +  "CDR_" + str(diameterResolution)
+        print('outputing to file ' +outputFile)
         fields.NodesExport(outputFile,"FORTRAN")
+        print('Writing error to csv file: ' + optErrorFile)
+        try:
+            with open(optErrorFile, 'a') as file:
+                file.write(meshTypes[meshName]+ ', ' + str(diameterResolution) + ', ' + str(p) + ', ' + str(vicinityFactor) + ', ' + str(idwVelRMSE) + ', \n')            
+        except IOError:
+            print ('Could not open RMSE log file: ' + optErrorFile)
     else:
         if fitIdw:
             outputDirectory = outputDirectory + 'versus/idw/'
@@ -1378,8 +1365,8 @@ if (exportAnalytic):
         ErrorMagIdw[node] = linalg.norm(AbsErrorIdw[node,:])
 
     meanIdw = numpy.mean(AbsErrorIdw)
-    SDIdw = numpy.std(AbsErrorIdw)
-    RMSErrorIdw = numpy.sqrt(numpy.mean(AbsErrorIdw**2))
+    SDIdw = numpy.std(ErrorMagIdw)
+    RMSErrorIdw = numpy.sqrt(numpy.mean(ErrorMagIdw**2))
 
     print("Error IDW: " + str(AbsErrorIdw))
     print("RMS Error IDW: " + str(RMSErrorIdw))
