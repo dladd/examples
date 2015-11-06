@@ -93,11 +93,11 @@ viscosity= 0.004      # Viscosity   (Pa.s)
 G0   = 0.0        # Gravitational acceleration (m/s2)
 Pext = 0.0        # External pressure (Pa)
 
-couplingTolerance3D1D = 1.0E-4
+couplingTolerance3D1D = 1.0E-7
 startTime = 0.0
 stopTime = 0.200001 
 timeIncrement = 0.001
-outputFrequency = 10
+outputFrequency = 1
 totalLength = 20.0
 radius = 0.5
 
@@ -484,7 +484,7 @@ equationsSet3D.CreateFinish()
 
 # Set boundary retrograde flow stabilisation scaling factor (default 0.0)
 equationsSetField3D.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U1,
-                                                CMISS.FieldParameterSetTypes.VALUES,1,1.0)
+                                                CMISS.FieldParameterSetTypes.VALUES,1,-1.0)
 # Set max CFL number (default 1.0)
 equationsSetField3D.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U1,
                                                 CMISS.FieldParameterSetTypes.VALUES,2,1.0E20)
@@ -823,9 +823,9 @@ problem.SolverGet([1,1,CMISS.ControlLoopIdentifiers.NODE],1,nonlinearSolver1DC)
 nonlinearSolver1DC.NewtonJacobianCalculationTypeSet(CMISS.JacobianCalculationTypes.EQUATIONS)
 nonlinearSolver1DC.OutputTypeSet(CMISS.SolverOutputTypes.NONE)
 # Set the solver settings
-nonlinearSolver1DC.newtonAbsoluteTolerance = 1.0E-8
-nonlinearSolver1DC.newtonSolutionTolerance = 1.0E-5
-nonlinearSolver1DC.newtonRelativeTolerance = 1.0E-5
+nonlinearSolver1DC.newtonAbsoluteTolerance = 1.0E-10
+nonlinearSolver1DC.newtonSolutionTolerance = 1.0E-10
+nonlinearSolver1DC.newtonRelativeTolerance = 1.0E-10
 # Get the nonlinear linear solver
 linearSolver1DC = CMISS.Solver()
 nonlinearSolver1DC.NewtonLinearSolverGet(linearSolver1DC)
@@ -834,8 +834,8 @@ linearSolver1DC.OutputTypeSet(CMISS.SolverOutputTypes.NONE)
 linearSolver1DC.LinearTypeSet(CMISS.LinearSolverTypes.ITERATIVE)
 linearSolver1DC.LinearIterativeMaximumIterationsSet(100000)
 linearSolver1DC.LinearIterativeDivergenceToleranceSet(1.0E+10)
-linearSolver1DC.LinearIterativeRelativeToleranceSet(1.0E-5)
-linearSolver1DC.LinearIterativeAbsoluteToleranceSet(1.0E-8)
+linearSolver1DC.LinearIterativeRelativeToleranceSet(1.0E-10)
+linearSolver1DC.LinearIterativeAbsoluteToleranceSet(1.0E-10)
 linearSolver1DC.LinearIterativeGMRESRestartSet(3000)
 
 # Navier-Stokes
@@ -852,7 +852,7 @@ nonlinearSolver1DNS.OutputTypeSet(CMISS.SolverOutputTypes.NONE)
 # Set the solver settings
 nonlinearSolver1DNS.NewtonAbsoluteToleranceSet(1.0E-8)
 nonlinearSolver1DNS.NewtonSolutionToleranceSet(1.0E-8)
-nonlinearSolver1DNS.NewtonRelativeToleranceSet(1.0E-5)
+nonlinearSolver1DNS.NewtonRelativeToleranceSet(1.0E-8)
 # Get the dynamic nonlinear linear solver
 linearSolver1DNS = CMISS.Solver()
 nonlinearSolver1DNS.NewtonLinearSolverGet(linearSolver1DNS)
@@ -861,7 +861,7 @@ linearSolver1DNS.OutputTypeSet(CMISS.SolverOutputTypes.NONE)
 linearSolver1DNS.LinearTypeSet(CMISS.LinearSolverTypes.ITERATIVE)
 linearSolver1DNS.LinearIterativeMaximumIterationsSet(100000)
 linearSolver1DNS.LinearIterativeDivergenceToleranceSet(1.0E+10)
-linearSolver1DNS.LinearIterativeRelativeToleranceSet(1.0E-5)
+linearSolver1DNS.LinearIterativeRelativeToleranceSet(1.0E-8)
 linearSolver1DNS.LinearIterativeAbsoluteToleranceSet(1.0E-8)
 linearSolver1DNS.LinearIterativeGMRESRestartSet(3000)
 
@@ -961,19 +961,21 @@ for nodeNumber in outletNodes3D:
         boundaryConditions3D.SetNode(dependentField3D,CMISS.FieldVariableTypes.U,
                                      1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
                                      nodeNumber,4,CMISS.BoundaryConditionsTypes.COUPLING_STRESS,value)
+        #dependentField3D.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.PRESSURE_VALUES,
+        #                                          1,1,nodeNumber,4,1.0)
 # Outlet boundary elements
 for element in range(numberOfOutletElements3D):
     elementNumber = outletElements3D[element]
     elementDomain=decomposition3D.ElementDomainGet(elementNumber)
     boundaryID = 3.0
     if (elementDomain == computationalNodeNumber):
-        area3D = 0.707106781
         # Boundary ID: used to identify common faces for flowrate calculation
         equationsSetField3D.ParameterSetUpdateElementDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,
                                                       elementNumber,8,boundaryID)
         # Boundary Type: workaround since we don't have access to BC object during FE evaluation routines
         equationsSetField3D.ParameterSetUpdateElementDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,
-                                                      elementNumber,9,CMISS.BoundaryConditionsTypes.COUPLING_STRESS)
+                                                        elementNumber,9,CMISS.BoundaryConditionsTypes.COUPLING_STRESS)
+                                                        #elementNumber,9,CMISS.BoundaryConditionsTypes.PRESSURE)
         # 1D Coupling node
         equationsSetField3D.ParameterSetUpdateElementDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,
                                                       elementNumber,11,couplingNode1D)

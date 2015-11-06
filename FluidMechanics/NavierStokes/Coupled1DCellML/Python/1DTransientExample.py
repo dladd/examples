@@ -110,7 +110,7 @@ MaterialsFieldUserNumberH     = 3
 import numpy,math,cmath,csv,time,sys,os,pdb
 from scipy.fftpack import fft,ifft
 from scipy.sparse  import linalg
-from scipy.linalg  import inv,eig
+#from scipy.linalg  import inv,eig
 from scipy.special import jn
 sys.path.append(os.sep.join((os.environ['OPENCMISS_ROOT'],'cm','bindings','python')))
 from opencmiss import CMISS
@@ -146,12 +146,12 @@ versionIdx = 1
 # Set the flags
 Heart               = False   # Set to use coupled 0D Windkessel models (from CellML) at model inlet boundaries
 RCRBoundaries       = False   # Set to use coupled 0D Windkessel models (from CellML) at model outlet boundaries
-nonReflecting       = False   # Set to use non-reflecting outlet boundaries
+nonReflecting       = True   # Set to use non-reflecting outlet boundaries
 streeBoundaries     = False   # Set to use structured tree outlet boundaries
 coupledAdvection    = False   # Set to solve a coupled advection problem
 timestepStability   = False   # Set to do a basic check of the stability of the hyperbolic problem based on the timestep size
 initialiseFromFile  = False   # Set to initialise values
-ProgressDiagnostics = False   # Set to diagnostics
+ProgressDiagnostics = True   # Set to diagnostics
 
 #================================================================================================================================
 #  Mesh Reading
@@ -249,7 +249,9 @@ with open('Input/Element.csv','rb') as csvfile:
 if (ProgressDiagnostics):
     print " Input at nodes: " + str(inputNodeNumber)
     print " Bifurcations at nodes: " + str(bifurcationNodeNumber)
+    #print " # of bifurcations: " + str(numberOfBifurcations)
     print " Trifurcations at nodes: " + str(trifurcationNodeNumber)
+    #print " # of trifurcations: " + str(numberOfTrifurcations)
     print " Terminal at nodes: " + str(coupledNodeNumber)
     print " == >> Finished reading geometry... << == "
 
@@ -429,10 +431,10 @@ else:
         ProblemSubtype = CMISS.ProblemSubTypes.OnedTransientAdv_NAVIER_STOKES
     else:
         # Navier-Stokes solver
-        EquationsSetSubtype = CMISS.EquationsSetSubtypes.OnedTransient_NAVIER_STOKES
+        EquationsSetSubtype = CMISS.EquationsSetSubtypes.TRANSIENT1D_NAVIER_STOKES
         # Characteristic solver
-        EquationsSetCharacteristicSubtype = CMISS.EquationsSetSubtypes.Coupled1D0D_CHARACTERISTIC
-        ProblemSubtype = CMISS.ProblemSubTypes.OnedTransient_NAVIER_STOKES
+        EquationsSetCharacteristicSubtype = CMISS.EquationsSetSubtypes.CHARACTERISTIC
+        ProblemSubtype = CMISS.ProblemSubTypes.TRANSIENT1D_NAVIER_STOKES
 
 #================================================================================================================================
 #  Coordinate System
@@ -545,6 +547,7 @@ else:
 
 # Specify the SPACE mesh component
 MeshElementsSpace.CreateStart(Mesh,meshComponentNumberSpace,BasisSpace)
+print(bifurcationElements)
 for elemIdx in range(1,totalNumberOfElements+1):
     MeshElementsSpace.NodesSet(elemIdx,elementNodes[elemIdx])
 for bifIdx in range(1,numberOfBifurcations+1):
@@ -635,6 +638,7 @@ GeometricField.CreateFinish()
 # Set the geometric field values for version 1
 versionIdx = 1
 for nodeIdx in range(1,numberOfNodesSpace+1):
+    print(nodeIdx)
     nodeDomain = Decomposition.NodeDomainGet(nodeIdx,meshComponentNumberSpace)
     if (nodeDomain == computationalNodeNumber):
         GeometricField.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,
@@ -671,6 +675,15 @@ for trifIdx in range (1,numberOfTrifurcations+1):
 # Finish the parameter update
 GeometricField.ParameterSetUpdateStart(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES)
 GeometricField.ParameterSetUpdateFinish(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES)     
+
+# Export Geometry
+print("Exporting geometry...")
+Fields = CMISS.Fields()
+Fields.CreateRegion(Region)
+Fields.NodesExport("Geometry","FORTRAN")
+Fields.ElementsExport("Geometry","FORTRAN")
+Fields.Finalise()
+print("done!")
 
 #------------------
 

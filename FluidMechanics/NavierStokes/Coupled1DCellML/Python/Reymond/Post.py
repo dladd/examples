@@ -17,7 +17,7 @@ def Post(nodes):
 
     # Set the time parameters
     cycleTime = 790.0
-    numberOfCycles = 4.0
+    numberOfCycles = 1.0
     solveTime      = cycleTime*numberOfCycles
     timeIncrement = 0.2
     outputFrequency = 10
@@ -140,7 +140,7 @@ def Post(nodes):
 if len(sys.argv) > 1:
     nodes = int(sys.argv[1:])
 else:
-    nodes = [1,93,120,127,170]
+    nodes = [1,10,16,82,100]
 Post(nodes)
 
 print "Processing Completed!"
