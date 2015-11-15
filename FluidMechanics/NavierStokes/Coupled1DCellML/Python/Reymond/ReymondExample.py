@@ -110,8 +110,8 @@ computationalNodeNumber    = CMISS.ComputationalNodeNumberGet()
 #================================================================================================================================
 
 # Set the flags
-RCRBoundaries            = True   # Set to use coupled 0D Windkessel models (from CellML) at model outlet boundaries
-nonReflecting            = False    # Set to use non-reflecting outlet boundaries
+RCRBoundaries            = False   # Set to use coupled 0D Windkessel models (from CellML) at model outlet boundaries
+nonReflecting            = True    # Set to use non-reflecting outlet boundaries
 CheckTimestepStability   = False   # Set to do a basic check of the stability of the hyperbolic problem based on the timestep size
 initialiseFromFile       = False   # Set to initialise values
 ProgressDiagnostics      = True   # Set to diagnostics
@@ -246,7 +246,7 @@ cmissSolverOutputType = CMISS.SolverOutputTypes.NONE
 dynamicSolverNavierStokesOutputFrequency = 10
 
 # Set the time parameters
-numberOfPeriods = 40.0
+numberOfPeriods = 10.0
 timePeriod      = 790.
 timeIncrement   = 0.2
 startTime       = 0.0
@@ -270,7 +270,7 @@ MAXIMUM_ITERATIONS   = 100000   # default: 100000
 RESTART_VALUE        = 3000     # default: 30
 
 # N-S/C coupling tolerance
-couplingTolerance1D = 1.0E+10
+couplingTolerance1D = 1.0E+15
 # 1D-0D coupling tolerance
 couplingTolerance1D0D = 0.001
 
