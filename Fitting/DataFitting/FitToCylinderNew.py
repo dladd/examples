@@ -95,10 +95,15 @@ def solveFemWithParameters(sobelovParameters):
     tau=abs(sobelovParameters[0])
     kappa=abs(sobelovParameters[1])
     # Initialise dependent field to zero
-    for component in range(numberOfDimensions):
-        componentId = component + 1
-        dependentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.
-                                                   FieldParameterSetTypes.VALUES,componentId,0.0)
+    # for component in range(numberOfDimensions):
+    #     componentId = component + 1
+    #     #DEBUG
+    #     if component == 2:
+    #         value = -1.0
+    #     else:
+    #         value = 0.0            
+    #     dependentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.
+    #                                                FieldParameterSetTypes.VALUES,componentId,value)
     # Set kappa and tau - Sobelov smoothing parameters
     materialField.ParameterSetUpdateConstantDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,1,tau)
     materialField.ParameterSetUpdateConstantDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,2,kappa)
@@ -123,12 +128,14 @@ def solveFemWithParameters(sobelovParameters):
                                                                                 nodeId,componentId)
         ErrorMag[node] = linalg.norm(AbsError[node,:])
     RMSError = numpy.sqrt(numpy.mean(ErrorMag**2))
+
+    print("------------------------------------\n\n")
     print("Tau: " + str(tau))
     print("Kappa: " + str(kappa))
     print("Error Array: ")
     print(AbsError)
     print("Error: " + str(RMSError))
-    print("------------------------------------\n\n")
+    print("------------------------------------")
     return(RMSError);
 
 
@@ -382,7 +389,8 @@ dataResolutionIncrement = [2.0*radius/float(dataResolution[0]+1),
                            2.0*radius/float(dataResolution[2]+1)]
 dataResolutionIncrement[axialComponent] = length/float(dataResolution[axialComponent]+1)
 dataInit = [-radius,-radius,-radius]
-dataInit[axialComponent] = -dataResolutionIncrement[axialComponent]
+#dataInit[axialComponent] = -dataResolutionIncrement[axialComponent]
+dataInit[axialComponent] = dataResolutionIncrement[axialComponent]/2.0
 
 print("Data resolution increment: " + str(dataResolutionIncrement))
 print("Data init: " + str(dataInit))
@@ -410,7 +418,7 @@ if (addZeroLayer):
                     dataPointLocations.append([dataPointX,dataPointY,dataPointZ])
 #    dataResolution = [i - 4 for i in dataResolution]
 else:
-    dataResolution[axialComponent] += 2
+    #dataResolution[axialComponent] += 2
     dataPointZ = dataInit[2]
     for z in range(dataResolution[2]):
         dataPointZ = dataPointZ + dataResolutionIncrement[2]
@@ -485,10 +493,10 @@ if addNoise:
     writeDataPoints(dataPointLocations,velocityData,dataPointFilename)
     dataPointOutputFilename = "dataPointsSNR" + str(SNR) + '.exnode'
     os.system("perl $scripts/meshConversion/dataPointsConversion.pl " + dataPointFilename + " 1000000 " +dataPointOutputFilename)
-#else:
-    #writeDataPoints(dataPointLocations,velocityData,"dataPoints.C")
-    #os.system("perl $scripts/meshConversion/dataPointsConversion.pl dataPoints.C 1000000 dataPoints.exnode")
-    #print('Data point writing completed')
+else:
+    writeDataPoints(dataPointLocations,velocityData,"dataPoints.C")
+    os.system("perl $scripts/meshConversion/dataPointsConversion.pl dataPoints.C 1000000 dataPoints.exnode")
+    print('Data point writing completed')
 
 #=================================================================
 # Geometric Field
@@ -594,7 +602,12 @@ equationsSet.DependentCreateFinish()
 # Initialise dependent field
 for component in range(numberOfDimensions):
     componentId = component + 1
-    dependentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,componentId,0.0)
+    #DEBUG
+    if component == axialComponent:
+        value = -1.0
+    else:
+        value = 0.0            
+    dependentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,componentId,value)
 
 # Analytic values to test against - based on geometry field
 #-----------------------------------------------------------
@@ -1153,14 +1166,36 @@ if (fitFem):
 #        resultFem = optimize.fmin_powell(solveFemWithParameters,[tau,kappa])
 #        resultFem = optimize.fmin(solveFemWithParameters,[tau,kappa])
 
-        logspace = 10.**scipy.linspace(-7.0, 10.0, 20)
+        logspace = 10.**scipy.linspace(-7.0, 1.0, 20)                    
         
         currentMin = 10000.0
+        logFile = './output/' + meshName + '/opt/fef/CDR_' + str(diameterResolution) + '.log'
+        currentErrorLine = 0
         for tau in logspace:
             for kappa in logspace:
                 errorFem = solveFemWithParameters([tau,kappa])   
+
+                #DEBUG: check if solution diverged
+                try:
+                    with open(logFile):
+                        f = open(logFile,"rb")
+                        lineCounter = 0
+                        for line in f:
+                            lineCounter += 1
+                            if "Linear iterative solver did not converge" in line:
+                                if lineCounter > currentErrorLine:
+                                    print("*** WARNING: Detected PETSc solver divergence")
+                                    print('previous error line: ' + str(currentErrorLine))
+                                    print('current error line: ' + str(lineCounter))
+                                    print("------------------------------------")
+                                    currentErrorLine = lineCounter
+                                    errorFem = 100.0
+                        f.close()
+                except IOError:
+                   print ('Could not open run log file: ' + filename)
+
                 if errorFem < currentMin:
-                    print('\n ### New brute min found: ' +str(errorFem) + '\n')
+                    print('### New brute min found: ' +str(errorFem) + '\n\n')
                     currentMin = errorFem
                     tauMin = tau
                     kappaMin = kappa
@@ -1173,7 +1208,7 @@ if (fitFem):
         print('Starting Nelder-Mead fmin search \n')
         tau = tauMin
         kappa = kappaMin
-        resultFem = optimize.fmin(solveFemWithParameters,[tau,kappa])
+        resultFem = optimize.fmin(solveFemWithParameters,[tau,kappa], xtol=0.0001)
 
         print(resultFem)
         print('tau brute= ' + str(tau))
@@ -1192,21 +1227,21 @@ if (fitFem):
         # kappa = resultFem[1]
         # print('kappa new= ' + str(kappa))
 
-        errorFem = solveFemWithParameters([tau,kappa])
-        print('error Fem= ' + str(errorFem))
+        fefVelRMSE = solveFemWithParameters([tau,kappa])
+        print('error Fem= ' + str(fefVelRMSE))
 
 
     elif fefIterations > 1:
-        tau = 100.0
-        kappa = 10.0
-        factor = 10.0
+        #tau = 100.0
+        #kappa = 10.0
+        factor = 2.0
         timeFemStart = time.time()        
         # Solve the FEM problem w/ sobolev relaxation
         for iteration in range(fefIterations):
             timeFemItStart = time.time()                    
             tau = tau/factor
             kappa = kappa/factor
-            errorFem = solveFemWithParameters([tau,kappa])            
+            fefVelRMSE = solveFemWithParameters([tau,kappa])            
             timeFemItStop = time.time()        
             timeIt = timeFemItStop - timeFemItStart
             print('\n\n   Iteration Time: ' + str(timeIt) + '\n\n')
@@ -1218,7 +1253,9 @@ if (fitFem):
         # Solve the FEM problem
         print("Solving...")
         timeFemStart = time.time()        
-        problem.Solve()
+        #problem.Solve()
+        fefVelRMSE = solveFemWithParameters([tau,kappa])
+        print('error Fem= ' + str(fefVelRMSE))
         timeFemStop = time.time()        
         timeFem = timeFemStop - timeFemStart
         print("Complete. Solve time: "+str(timeFem))
@@ -1274,14 +1311,19 @@ else:
         print('Writing error to csv file: ' + optErrorFile)
         try:
             with open(optErrorFile, 'a') as file:
-                file.write(meshTypes[meshName]+ ', ' + str(diameterResolution) + ', ' + str(p) + ', ' + str(vicinityFactor) + ', ' + str(idwVelRMSE) + ', \n')            
+                if fitIdw:
+                    file.write(meshTypes[meshName]+ ', ' + str(diameterResolution) + ', ' + str(p) + ', ' + str(vicinityFactor) + ', ' + str(idwVelRMSE) + ', \n')            
+                else:
+                    file.write(meshTypes[meshName]+ ', ' + str(diameterResolution) + ', ' + str(tau) + ', ' + str(kappa) + ', ' + str(fefVelRMSE) + ', \n')            
         except IOError:
             print ('Could not open RMSE log file: ' + optErrorFile)
     else:
         if fitIdw:
             outputDirectory = outputDirectory + 'versus/idw/'
+            error = idwVelRMSE
         elif fitFem:
             outputDirectory = outputDirectory + 'versus/fef/'
+            error = fefVelRMSE
         else:
             print('please specify fitting type as idw or fef!')
             sys.exit(0)
@@ -1291,15 +1333,22 @@ else:
         except OSError, e:
             if e.errno != 17:
                 raise   
-        outputFile = outputDirectory + 'CDR' + str(dataResolution[0]) + "_" + str(dataResolution[1]) + "_" + str(dataResolution[2])
+        rmseFile = outputDirectory+'RMSE.txt'
+        print('Writing error to RMSE error file: ' + rmseFile)
+        try:
+            with open(rmseFile, 'a') as file:
+                file.write(str(diameterResolution) + ', ' + str(error) + ', \n')            
+        except IOError:
+            print ('Could not open RMSE log file: ' + rmseFile)
+        outputFile = outputDirectory + 'CDR' + str(diameterResolution)
         #outputFile = outputDirectory + meshName + "DataFit_" + str(dataResolution[0]) + "_" + str(dataResolution[1]) + "_" + str(dataResolution[2])
         print('outputting to file ' +outputFile)
         fields.NodesExport(outputFile,"FORTRAN")
 fields.Finalise()
 
-print("exporting analytic analysis")
-
-if (fitFem):
+#print("exporting analytic analysis")
+exportAnalytic1=False
+if (exportAnalytic1):
     analysisFile = "output/analysisFem" + "Data" + str(dataResolution[0]) + "_" + str(dataResolution[1]) + "_" + str(dataResolution[2]) + "_Tau" + str(tau) + "_Kappa" + str(kappa)
 #    CMISS.AnalyticAnalysisOutput(dependentField,analysisFile)
     AbsErrorFem = numpy.zeros((numberOfNodes,numberOfDimensions))
@@ -1313,21 +1362,20 @@ if (fitFem):
                                                                                    nodeId,componentId)
         ErrorMagFem[node] = linalg.norm(AbsErrorFem[node,:])
 
-    SDFem = numpy.std(AbsErrorFem)    
-#    RMSErrorFem = numpy.sqrt(numpy.mean(ErrorMagFem**2))
-    RMSErrorFem = numpy.sqrt(numpy.mean(AbsErrorFem**2))
+    SDFem = numpy.std(ErrorMagFem)    
+    RMSErrorFem = numpy.sqrt(numpy.mean(ErrorMagFem**2))
     print("Tau: " + str(tau))
     print("Kappa: " + str(kappa))
-    print("Error Array: ")
+    print("Errors: ")
     print(AbsErrorFem)
-    print("Error: " + str(RMSErrorFem))
+    print("RMS Error: " + str(RMSErrorFem))
     print("------------------------------------\n\n")
 #    RMSErrorFem = numpy.zeros((numberOfDimensions))
     # for component in range(numberOfDimensions):
     #     RMSErrorFem[component] = numpy.sqrt(numpy.mean(AbsErrorFem[:,component]**2))
     # RMSErrorMagnitudeFem = linalg.norm(RMSErrorFem)
-    print("RMS Error FEM: " + str(RMSErrorFem))
-    print("Standard Deviation FEM: " + str(SDFem))
+    #print("RMS Error FEM: " + str(RMSErrorFem))
+    #print("Standard Deviation FEM: " + str(SDFem))
 
     # if (optimise == False):
     #     print("Solve time FEM: " + str(timeFem) + "\n")

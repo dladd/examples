@@ -29,7 +29,7 @@ def womersleyAxialVelocity(t,pOffset,amplitude,R,r,period,viscosity,alpha,length
 
     #uWomComplex = (amplitude*R**2.)/(viscosity*(alpha**2.))*1j*(1-((jn(0,(gamma*r/R)))/(jn(0,(gamma)))))*cmath.exp(1j*(angularFrequency*t+math.pi/2.))/length
     uWomComplex = (amplitude*R**2.)/(viscosity*(alpha**2.))*1j*(1-((jn(0,(gamma*r/R)))/(jn(0,(gamma)))))*cmath.exp(1j*(angularFrequency*t))/length
-    uAxial = -uWomComplex.real
+    uAxial = uWomComplex.real
     if abs(pOffset) > zeroTolerance:
         print('using p-offset')
         PoiseuilleAxialVelocity(uOffset,pOffset,viscosity,length,r,R)
@@ -50,9 +50,9 @@ def womersleyFlowrate(t,pOffset,amplitude,R,period,viscosity,alpha,length):
     #qAxial = 0.01265*math.sin(angularFrequency*(t)+math.pi/2.)
     return(qAxial);
 
-def womersleyPressure(t,pOffset,amplitude,R,period,viscosity,alpha,length):
+def womersleyPressure(time,frequency,pOffset,amplitude,axialPosition,length):
     """ Computes analytic value for axial velocity assuming a Womersley profile """
-
-    pressure = pOffset + amplitude*math.cos(2.0*math.pi*(t/(period)))#+math.pi/2.0)
+    pressure = pOffset + amplitude - amplitude*math.cos(frequency*time)*(axialPosition/length)
+    #pressure = pOffset + amplitude*math.cos(2.0*math.pi*(t/(period)))#+math.pi/2.0)
     return(pressure);
 
