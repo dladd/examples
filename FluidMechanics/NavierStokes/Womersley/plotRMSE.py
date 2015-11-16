@@ -67,11 +67,12 @@ matplotlib.rc('lines', linewidth=2, color='r')
 #=================================================================
 numberOfProcessors = 1
 woNums = ['10.0']
-meshName = 'hexCylinder140'
+meshName = 'hexCylinder12'
 axialComponent = 1
-meshLabel = 'Coarse mesh'
+#meshLabel = 'Coarse mesh'
+meshLabel = 'Fine mesh'
 meshType = 'Quadratic'
-thetas = ['1.0','0.5']
+thetas = ['1.0']#,'0.5']
 #thetas = ['1.0']
 lineColours = ['r-o','b-o','g-o']
 dependentFieldNumber = 2
@@ -84,15 +85,15 @@ period = math.pi/2.
 density = 1.0
 cmfeStartTime = 0.0
 cmfeStopTime = period + 0.0000001
-#cmfeTimeIncrements = [period/400.]
-cmfeTimeIncrements = [period/10.,period/25.,period/50,period/200.,period/1000.]]
-cmfeOutputFrequencies = [2,5,10,40,200]
+cmfeTimeIncrements = [period/10.]
+#cmfeTimeIncrements = [period/10.,period/25.,period/50,period/200.,period/1000.]]
+#cmfeOutputFrequencies = [2,5,10,40,200]
 #cmfeTimeIncrements = [period/10.,period/25.]
-#cmfeOutputFrequencies = [2,5]
+cmfeOutputFrequencies = [2]
 path = "./output/"
 #path = "/media/F0F095D5F095A300/opencmissStorage/Womersley/"
 #vtuMesh = "/hpc/dlad004/opencmiss/examples/FluidMechanics/NavierStokes/Womersley/input/pyformexMesh/hexCylinder12QuadDef.vtu"
-vtuMesh = "/hpc/dlad004/opencmiss/examples/FluidMechanics/NavierStokes/Womersley/input/hexCylinder140/hex140.vtk"
+#vtuMesh = "/hpc/dlad004/opencmiss/examples/FluidMechanics/NavierStokes/Womersley/input/hexCylinder140/hex140.vtk"
 nodeFile = "./input/" + meshName + "/" + meshName + ".C"
 elementFile = "./input/" + meshName + "/" + meshName + ".M"
 centerLineNodeFile = "./input/" + meshName + "/bc/centerlineNodes.dat"
@@ -259,6 +260,7 @@ try:
         f.close()
 except IOError:
    print ('Could not open center node file: ' + filename)
+print(centerLineNodes)
 
 filename=centerFaceNodeFile
 try:
@@ -401,6 +403,7 @@ if exportWSS:
     
 
 plotTime = True
+#timesteps = [i for i in range(6)]
 timesteps = [0]
 w=0
 t = 0
@@ -421,6 +424,7 @@ if plotTime:
     for timestep in timesteps:
         i = 0
         for node in centerLineNodes:
+            print(node)
             x[i] = nodeData[w,t,timestep,node,0,0]
             analytic[i] = analyticData[w,t,timestep,node]
             numeric[i] = nodeData[w,t,timestep,node,dependentFieldNumber,1]
@@ -441,6 +445,8 @@ if plotTime:
         analytic = aSort[:,1]
         numeric = nSort[:,1]
         poiseuille = pSort[:,1]
+        print(numeric)
+        print(analytic)
 
         ana, num = plt.plot(x,analytic,lineColours[tIndex],x, numeric,lineColours[tIndex+1])
         tIndex+=1

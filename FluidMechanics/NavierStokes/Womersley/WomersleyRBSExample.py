@@ -88,12 +88,14 @@ density = 1.0
 amplitude = 1.0
 phaseShift = math.pi/2.0
 period = math.pi/2.
-timeIncrement = period/10.0 #[period/400.] 10,25,50,200
+timeIncrement = period/1000.0 #[period/400.] 10,25,50,200
 theta = 1.0
 womersleyNumber = 10.0
 startTime = 0.0
-stopTime = period + 0.000001
-outputFrequency = 1
+stopTime = 2*period + 0.000001
+outputFrequency = 50
+initialiseAnalytic = True
+beta = 0.0
 
 # Mesh parameters
 quadraticMesh = True
@@ -111,7 +113,8 @@ if quadraticMesh:
     meshType = 'Quadratic'
 else:
     meshType = 'Linear'
-outputDirectory = "./output/Wom" + str(womersleyNumber) + 'Dt' + str(round(timeIncrement,5)) +'_'+ meshName + meshType + "_theta"+str(theta)+"/"
+outputDirectory = ("./output/Wom" + str(womersleyNumber) + 'Dt' + str(round(timeIncrement,5)) +
+                   '_'+ meshName + meshType + "_theta"+str(theta)+ '_Beta'+str(beta)+"/")
 try:
     os.makedirs(outputDirectory)
 except OSError, e:
@@ -333,7 +336,7 @@ equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U1,
 # Set boundary retrograde flow stabilisation scaling factor (default 0.2)
 equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,
                                               CMISS.FieldParameterSetTypes.VALUES, 
-                                              1,0.0)
+                                              1,beta)
 
 # Create dependent field
 dependentField = CMISS.Field()
@@ -354,7 +357,6 @@ for component in range(1,5):
     dependentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.DELUDELN,CMISS.FieldParameterSetTypes.VALUES,component,0.0)
 
 # Initialise dependent field to analytic values
-initialiseAnalytic = True
 if initialiseAnalytic:
     for node in range(1,numberOfNodes+1):
         sumPositionSq = 0.
