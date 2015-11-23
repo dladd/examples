@@ -100,7 +100,7 @@ beta = 0.0
 # Mesh parameters
 quadraticMesh = True
 equalOrder = True
-meshName = 'hexCylinder12' # 140, 12
+meshName = 'hexCylinder13' # 140, 12
 inputDir = './input/' + meshName +'/'
 length = 10.0
 radius = 0.5
@@ -515,6 +515,9 @@ for nodeNumber in outletNodes:
                                            1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
                                            nodeNumber,4,CMISS.BoundaryConditionsTypes.PRESSURE,value)
 # Outlet boundary elements
+print(numberOfOutletElements)
+print(outletElements)
+print(normalOutlet)
 for element in range(numberOfOutletElements):
     elementNumber = outletElements[element]
     elementDomain=decomposition.ElementDomainGet(elementNumber)
