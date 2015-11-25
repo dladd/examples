@@ -77,6 +77,11 @@ def ChangeDirectory(path):
 # Get the computational nodes information
 numberOfComputationalNodes = CMISS.ComputationalNumberOfNodesGet()
 computationalNodeNumber = CMISS.ComputationalNodeNumberGet()
+if numberOfComputationalNodes == 1:
+    logfile = 'serial'
+else:
+    logfile = 'mpi'
+CMISS.OutputSetOn(logfile)
 
 #==========================================================
 # P r o b l e m     C o n t r o l
@@ -86,14 +91,13 @@ computationalNodeNumber = CMISS.ComputationalNodeNumberGet()
 offset = 0.0
 density = 1.0
 amplitude = 1.0
-phaseShift = math.pi/2.0
 period = math.pi/2.
 timeIncrement = period/1000.0 #[period/400.] 10,25,50,200
 theta = 1.0
 womersleyNumber = 10.0
 startTime = 0.0
-stopTime = 2*period + 0.000001
-outputFrequency = 50
+stopTime = timeIncrement + 0.00001 #period + 0.000001
+outputFrequency = 1
 initialiseAnalytic = True
 beta = 0.0
 
@@ -150,6 +154,7 @@ try:
         f.close()
 except IOError:
    print ('Could not open Inlet boundary node file: ' + filename)
+print('inlet nodes: ' + str(inletNodes))
 #Inlet boundary elements
 filename=inputDir + 'bc/inletElements.dat'
 try:
@@ -230,13 +235,16 @@ numberOfNodes = nodes.numberOfNodes
 print("number of nodes: " + str(numberOfNodes))
 
 # Create bases
-basisNumberQuadratic = 1
-basisNumberLinear = 2
-gaussQuadrature = [3,3,3]
-fieldmlInfo.InputBasisCreateStartNum("CylinderMesh.triquadratic_lagrange",basisNumberQuadratic)
-CMISS.Basis_QuadratureNumberOfGaussXiSetNum(basisNumberQuadratic,gaussQuadrature)
-CMISS.Basis_QuadratureLocalFaceGaussEvaluateSetNum(basisNumberQuadratic,True)
-CMISS.Basis_CreateFinishNum(basisNumberQuadratic)
+basisNumberLinear = 1
+if quadraticMesh:
+    basisNumberQuadratic = 1
+    basisNumberLinear = 2
+    gaussQuadrature = [3,3,3]
+    fieldmlInfo.InputBasisCreateStartNum("CylinderMesh.triquadratic_lagrange",basisNumberQuadratic)
+    CMISS.Basis_QuadratureNumberOfGaussXiSetNum(basisNumberQuadratic,gaussQuadrature)
+    CMISS.Basis_QuadratureLocalFaceGaussEvaluateSetNum(basisNumberQuadratic,True)
+    CMISS.Basis_CreateFinishNum(basisNumberQuadratic)
+
 gaussQuadrature = [2,2,2]
 fieldmlInfo.InputBasisCreateStartNum("CylinderMesh.trilinear_lagrange",basisNumberLinear)
 CMISS.Basis_QuadratureNumberOfGaussXiSetNum(basisNumberLinear,gaussQuadrature)
@@ -323,9 +331,9 @@ equationsSet.CreateStart(equationsSetUserNumber,region,geometricField,
         CMISS.EquationsSetSubtypes.TRANSIENT_RBS_NAVIER_STOKES,
         equationsSetFieldUserNumber, equationsSetField)
 equationsSet.CreateFinish()
-# Set max CFL number (default 1.0)
+# Set max CFL number (default 1.0, choose 0 to skip)
 equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U1,
-                                              CMISS.FieldParameterSetTypes.VALUES,2,100.0)
+                                              CMISS.FieldParameterSetTypes.VALUES,2,0.0)
 # Set time increment (default 0.0)
 equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U1,
                                               CMISS.FieldParameterSetTypes.VALUES,3,timeIncrement)
@@ -358,6 +366,7 @@ for component in range(1,5):
 
 # Initialise dependent field to analytic values
 if initialiseAnalytic:
+    phaseShift = math.pi/2.0
     for node in range(1,numberOfNodes+1):
         sumPositionSq = 0.
         nodeNumber = nodes.UserNumberGet(node)
@@ -376,9 +385,16 @@ if initialiseAnalytic:
                                                                        1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,nodeNumber,component)
                     #pressureValue = amplitude - amplitude*(axialPosition)/length
                     pressureValue = womersleyAnalytic.womersleyPressure(startTime,angularFrequency,offset,amplitude,axialPosition,length)
+                    if meshName == 'hexCylinder8':
+                        if node in outletNodes:
+                            pressureValue = 0.0
+                        elif node in inletNodes:
+                            pressureValue = 1.0
                     dependentField.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,
                                                             1,1,nodeNumber,4,pressureValue)
             radialNodePosition=math.sqrt(sumPositionSq)
+                    
+            
             velocityValue = womersleyAnalytic.womersleyAxialVelocity(startTime,offset,amplitude,radius,
                                                                      radialNodePosition,period,viscosity,
                                                                      womersleyNumber,length)
@@ -390,6 +406,10 @@ if initialiseAnalytic:
                     value = 0.0
                 dependentField.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,
                                                         1,1,nodeNumber,component,value)
+else:
+    phaseShift = 0.0
+dependentField.ParameterSetUpdateStart(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES)
+dependentField.ParameterSetUpdateFinish(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES)
 
 # Create materials field
 materialsField = CMISS.Field()
@@ -485,6 +505,7 @@ referenceNode = 0 #outletNodes[0]
 # Create boundary conditions
 boundaryConditions = CMISS.BoundaryConditions()
 solverEquations.BoundaryConditionsCreateStart(boundaryConditions)
+print('setting up boundary conditions')
 # Wall boundary nodes u = 0 (no-slip)
 value=0.0
 for nodeNumber in wallNodes:
@@ -515,9 +536,6 @@ for nodeNumber in outletNodes:
                                            1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
                                            nodeNumber,4,CMISS.BoundaryConditionsTypes.PRESSURE,value)
 # Outlet boundary elements
-print(numberOfOutletElements)
-print(outletElements)
-print(normalOutlet)
 for element in range(numberOfOutletElements):
     elementNumber = outletElements[element]
     elementDomain=decomposition.ElementDomainGet(elementNumber)
@@ -574,6 +592,11 @@ for element in range(numberOfInletElements):
             equationsSetField.ParameterSetUpdateElementDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,
                                                           elementNumber,componentId,value)
 solverEquations.BoundaryConditionsCreateFinish()
+# Make sure fields are updated to distribute on ghost elements
+equationsSetField.ParameterSetUpdateStart(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES)
+equationsSetField.ParameterSetUpdateFinish(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES)
+# Allocate some extra MUMPS factorisation space
+linearSolver.MumpsSetIcntl(14,150)
 
 # Solve the problem
 print("solving problem...")

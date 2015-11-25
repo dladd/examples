@@ -50,8 +50,9 @@ def womersleyFlowrate(t,pOffset,amplitude,R,period,viscosity,alpha,length):
     #qAxial = 0.01265*math.sin(angularFrequency*(t)+math.pi/2.)
     return(qAxial);
 
-def womersleyPressure(time,frequency,pOffset,amplitude,axialPosition,length):
+def womersleyPressure(time,period,pOffset,amplitude,axialPosition,length):
     """ Computes analytic value for axial velocity assuming a Womersley profile """
+    frequency = 2.0*math.pi/period
     pressure = pOffset + amplitude - amplitude*math.cos(frequency*time)*(axialPosition/length)
     #pressure = pOffset + amplitude*math.cos(2.0*math.pi*(t/(period)))#+math.pi/2.0)
     return(pressure);

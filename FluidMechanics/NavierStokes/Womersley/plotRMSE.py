@@ -67,12 +67,12 @@ matplotlib.rc('lines', linewidth=2, color='r')
 #=================================================================
 numberOfProcessors = 1
 woNums = ['10.0']
-meshName = 'hexCylinder12'
+meshName = 'hexCylinder140'
 axialComponent = 1
-#meshLabel = 'Coarse mesh'
-meshLabel = 'Fine mesh'
+meshLabel = 'Coarse mesh'
+#meshLabel = 'Fine mesh'
 meshType = 'Quadratic'
-thetas = ['1.0']#,'0.5']
+thetas = ['1.0','0.5']
 #thetas = ['1.0']
 lineColours = ['r-o','b-o','g-o']
 dependentFieldNumber = 2
@@ -85,11 +85,11 @@ period = math.pi/2.
 density = 1.0
 cmfeStartTime = 0.0
 cmfeStopTime = period + 0.0000001
-cmfeTimeIncrements = [period/10.]
-#cmfeTimeIncrements = [period/10.,period/25.,period/50,period/200.,period/1000.]]
-#cmfeOutputFrequencies = [2,5,10,40,200]
+#cmfeTimeIncrements = [period/10.]
+cmfeTimeIncrements = [period/10.,period/25.,period/50,period/200.]#,period/1000.]
+cmfeOutputFrequencies = [2,5,10,40]#,200]
 #cmfeTimeIncrements = [period/10.,period/25.]
-cmfeOutputFrequencies = [2]
+#cmfeOutputFrequencies = [2]
 path = "./output/"
 #path = "/media/F0F095D5F095A300/opencmissStorage/Womersley/"
 #vtuMesh = "/hpc/dlad004/opencmiss/examples/FluidMechanics/NavierStokes/Womersley/input/pyformexMesh/hexCylinder12QuadDef.vtu"
@@ -636,7 +636,7 @@ if analyseResults:
             # plot for this theta
             plt.plot(timeIncrements,CycleRMSErrors,lineColours[thetaInc],label = (r'$\theta=$ '+str(theta)))
         if m==0:
-            plt.legend(loc = (0.6, 0.55))
+            plt.legend(loc = (0.6, 0.25))
         if writeFigs:
             fname = outputFolder + meshName + meshType + '.pdf'
             fname = fname.replace(' ','')
