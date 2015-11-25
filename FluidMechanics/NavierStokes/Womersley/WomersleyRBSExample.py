@@ -81,7 +81,7 @@ if numberOfComputationalNodes == 1:
     logfile = 'serial'
 else:
     logfile = 'mpi'
-CMISS.OutputSetOn(logfile)
+#CMISS.OutputSetOn(logfile)
 
 #==========================================================
 # P r o b l e m     C o n t r o l
@@ -99,7 +99,7 @@ startTime = 0.0
 stopTime = timeIncrement + 0.00001 #period + 0.000001
 outputFrequency = 1
 initialiseAnalytic = True
-beta = 0.0
+beta = 1.0
 
 # Mesh parameters
 quadraticMesh = True
@@ -111,7 +111,6 @@ radius = 0.5
 axialComponent = 1
 
 #==========================================================
-print('dynamic theta: ' + str(theta))
 viscosity = density/(womersleyNumber**2.0)
 if quadraticMesh:
     meshType = 'Quadratic'
@@ -154,7 +153,6 @@ try:
         f.close()
 except IOError:
    print ('Could not open Inlet boundary node file: ' + filename)
-print('inlet nodes: ' + str(inletNodes))
 #Inlet boundary elements
 filename=inputDir + 'bc/inletElements.dat'
 try:
