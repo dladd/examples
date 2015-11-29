@@ -87,6 +87,7 @@ else:
 # P r o b l e m     C o n t r o l
 #==========================================================
 
+# Note scales are Length:cm, Time:s, Mass:kg
 # Problem parameters
 offset = 0.0
 density = 1.0
@@ -96,10 +97,10 @@ timeIncrement = period/1000.0 #[period/400.] 10,25,50,200
 theta = 1.0
 womersleyNumber = 10.0
 startTime = 0.0
-stopTime = timeIncrement + 0.00001 #period + 0.000001
-outputFrequency = 1
+stopTime = 2.0*period + 0.00001 #period + 0.000001
+outputFrequency = 50
 initialiseAnalytic = True
-beta = 1.0
+beta = 0.0
 
 # Mesh parameters
 quadraticMesh = True
@@ -111,7 +112,13 @@ radius = 0.5
 axialComponent = 1
 
 #==========================================================
-viscosity = density/(womersleyNumber**2.0)
+print('dynamic theta: ' + str(theta))
+print('boundary stabilisation beta: ' + str(beta))
+angularFrequency = 2.0*math.pi/period
+viscosity = density*angularFrequency/((womersleyNumber/radius)**2.0)
+print('viscosity = '+str(viscosity))
+
+
 if quadraticMesh:
     meshType = 'Quadratic'
 else:
@@ -314,7 +321,6 @@ fieldmlInfo.Finalise()
               ------------------------------------------- L = 10
                                  u=0
 """
-angularFrequency = 2.0*math.pi/period
 if computationalNodeNumber == 0:
     print("-----------------------------------------------")
     print("Setting up problem for Womersley number: " + str(womersleyNumber))
@@ -430,6 +436,7 @@ if analytic:
             if nodeNumber in inletNodes:
                 nodeAmplitude = 1.0
                 pNorm = 1.0
+                #pNorm = normalInlet[axialComponent]
             # elif nodeNumber in outletNodes:
             #     nodeAmplitude = 0.0
             #     pNorm = 1.0
@@ -442,6 +449,8 @@ if analytic:
                 parameterNumber += 1
                 analyticField.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,1,1,
                                                        nodeNumber,parameterNumber,parameter)
+    analyticField.ParameterSetUpdateStart(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES)
+    analyticField.ParameterSetUpdateFinish(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES)
 
 # Create equations
 equations = CMISS.Equations()
