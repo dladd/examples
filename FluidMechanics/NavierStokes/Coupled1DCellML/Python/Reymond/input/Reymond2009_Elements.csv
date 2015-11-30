@@ -1,0 +1,56 @@
+element	node1	node2	node3	artery name
+1	1	2	3	ascending aorta
+2	3	4	5	aortic arch a
+3	5	6	7	aortic arch b
+4	7	8	9	thoracic aorta a
+5	9	10	11	thoracic aorta b
+6	11	12	13	abdominal aorta a
+7	75	14	15	abdominal aorta c
+8	15	16	17	abdominal aorta d
+9	17	18	19	abdominal aorta e
+10	3	20	21	brachiocephalic
+11	21	22	23	right subclavian a
+12	23	24	25	right subclavian b
+13	25	26	27	right radial 
+14	25	28	29	right ulnar a
+15	29	30	31	right ulnar b
+16	29	32	33	right interosseus
+17	23	34	35	right vertebral
+18	21	36	37	right common carotid
+19	37	38	39	right internal carotid
+20	5	40	41	left common carotid
+21	41	42	43	left external carotid
+22	41	44	45	left internal carotid
+23	7	46	47	left subcavian a
+24	47	48	49	left subclavian b
+25	49	50	51	left radial
+26	49	52	53	left ulnar a
+27	53	54	55	left ulnar b
+28	53	56	57	left interosseus
+29	47	58	59	left vertebral
+30	9	60	61	intercostal
+31	11	62	63	celiac a
+32	63	64	65	gastric
+33	71	66	67	splenic
+34	71	68	69	hepatic
+35	63	70	71	celiac b
+36	13	72	73	superior mesenteric
+37	13	74	75	abdominal aorta b
+38	75	76	77	left renal
+39	15	78	79	right renal
+40	17	80	81	inferior mesenteric
+41	19	82	83	left common iliac
+42	83	84	85	left external iliac
+43	85	86	87	left femoral
+44	87	88	89	left anterior tibial
+45	87	90	91	left posterior tibial
+46	85	92	93	left deep femoral
+47	83	94	95	left inner iliac
+48	19	96	97	right common iliac
+49	97	98	99	right external iliac
+50	99	100	101	right femoral
+51	101	102	103	right anterior tibial
+52	101	104	105	right posterior tibial
+53	99	106	107	right deep femoral
+54	97	108	109	right inner iliac
+55	37	110	111	right external carotid

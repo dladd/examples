@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 #> \file
 #> \author David Ladd
 #> \brief This is an example program to solve for flow using 1D transient Navier-Stokes 
@@ -217,7 +219,9 @@ for i in range(len(A0[:])):
             A[i,j] = A0[i][j]
 
 pInit = 0.0 #0.0133322
-pExternal = 0.0133322
+#pExternal = 0.0133322 # 100 mmHg
+pExternal = 70.0*0.000133322 # 80 mmHg
+
 #A = A0
 if initialiseFromFile:
     #filename = './output/Reymond2009ExpInputCellML/MainTime_39500.part0.exnode'
@@ -250,7 +254,7 @@ numberOfPeriods = 10.0
 timePeriod      = 790.
 timeIncrement   = 0.2
 startTime       = 0.0
-stopTime  = numberOfPeriods*timePeriod
+stopTime  = numberOfPeriods*timePeriod + timeIncrement*0.01 
 dynamicSolverNavierStokesTheta = [1.0]
 
 # Set the solver parameters
@@ -1087,7 +1091,8 @@ if (CheckTimestepStability):
 if RCRBoundaries:    
     outputDirectory = "./output/Reymond2009ExpInputCellML/"
 elif nonReflecting:
-    outputDirectory = "./output/" #"./output/Reymond2009ExpInputNonreflecting/"
+#    outputDirectory = "./output/" #"./output/Reymond2009ExpInputNonreflecting/"
+    outputDirectory = "./output/Reymond2009ExpInputNonreflecting_pExt70/"
 else:
     outputDirectory = "./output/"
 

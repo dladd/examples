@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 from subprocess import Popen, PIPE
 import FluidExamples1DUtilities as Utilities1D
 
-def Post(nodes,arteryLabels,outputDirs):
+def Post(nodes,arteryLabels,outputDirs,pdfFile):
     # Set the reference values
     Ls = 1000.0              # Length   (m -> mm)
     Ts = 1000.0              # Time     (s -> ms)
@@ -26,7 +26,7 @@ def Post(nodes,arteryLabels,outputDirs):
     
     #Choose type of plot(s)
     plotFlow = True
-    plotPressure = True
+    plotPressure = False
     plotNonreflect = False
 
     # Set up numpy arrays
@@ -119,20 +119,8 @@ def Post(nodes,arteryLabels,outputDirs):
             # Do a subplot if looking at several nodes at once
             if numberOfNodes > 1:
                 plt.subplot(int((numberOfNodes)/2)+numberOfNodes%2,2,nodeCounter+1)
-
-            # Plot this node
-            plt.title(arteryLabel+' (Node '+str(node)+')')
-            if 'radial' in arteryLabel:
-                plt.plot(timeResult,pressureNodeData[0,node-1,:],'k-',label='OpenCMISS Model')
-                if plotNonreflect:
-                    # Plot this node
-                    plt.plot(timeResult,pressureNodeData[1,node-1,:],'k--',label='OpenCMISS Model Nonreflecting')
-            else:
-                plt.plot(timeResult,flowNodeData[0,node-1,:],'k-',label='OpenCMISS Model')
-                if plotNonreflect:
-                    # Plot this node
-                    plt.plot(timeResult,flowNodeData[1,node-1,:],'k--',label='OpenCMISS Model Nonreflecting')
             colourNum = 0
+            # Plot Reymond data
             for ref in refs:
                 for refType in refTypes:
                     filename = refDir +ref+'/'+refType+'/node_'+str(node)
@@ -149,18 +137,38 @@ def Post(nodes,arteryLabels,outputDirs):
                         refDataCycles[:,0]=np.add(refDataCycles[:,0],addTime)
                         plt.plot(refDataCycles[:,0],refDataCycles[:,1],colours[colourNum],alpha=1.0,label=refLabel)
                         colourNum+=1
+            colourNum = 0
+            # Plot this node
+            plt.title(arteryLabel+' (Node '+str(node)+')')
+            if 'radial' in arteryLabel:
+                plt.plot(timeResult,pressureNodeData[0,node-1,:],'k-',label='OpenCMISS Model')
+                if plotNonreflect:
+                    # Plot this node
+                    plt.plot(timeResult,pressureNodeData[1,node-1,:],'k--',label='OpenCMISS Model Nonreflecting')
+            else:
+                plt.plot(timeResult,flowNodeData[0,node-1,:],'k-',label='OpenCMISS Model')
+                if plotNonreflect:
+                    # Plot this node
+                    plt.plot(timeResult,flowNodeData[1,node-1,:],'k--',label='OpenCMISS Model Nonreflecting')
+
             if 'radial' in arteryLabel:
                 plt.ylabel('Pressure (mmHg)')
             elif nodeCounter % 2 == 0:
-                plt.ylabel('Flow rate (mL/s)')
+                plt.ylabel(r'Flow rate (mLs$^{-1}$)')
             if nodeCounter > numberOfNodes - 3:
                 plt.xlabel('Time (ms)')
             nodeCounter = nodeCounter+1        
             plt.xlim(startTime,solveTime+startTime)
         # Plot all nodes
-        plt.legend(loc = (-0.6, -0.7))
-        #plt.show()
-        plt.savefig('temp.pdf', format='pdf', bbox_inches='tight')
+        #leg = ax.legend(['abc'], loc = 'center left', bbox_to_anchor = (1.0, 0.5))
+        plt.tight_layout()
+        legend = [plt.legend(loc = (-0.6, -1.1))]
+        if pdfFile != '':
+            #plt.savefig(pdfFile, format='pdf')#, bbox_inches='tight')
+            #plt.savefig(pdfFile,format='pdf', bbox_extra_artists=(plt.legend,), bbox_inches='tight')
+            plt.savefig(pdfFile,format='pdf', bbox_extra_artists=legend, bbox_inches='tight')
+        else:
+            plt.show()
         #plt.savefig('temp.pdf', format='pdf',bbox_extra_artists=(plt.legend,), bbox_inches='tight')
 
     if plotPressure:
@@ -194,25 +202,23 @@ def Post(nodes,arteryLabels,outputDirs):
 if len(sys.argv) > 1:
     nodes = int(sys.argv[1:])
 else:
-#    nodes = [1,9,16,82,100,30]#36,44,35]
+    nodes = [1,9,16,82,100,30]#36,44,35]
 #    nodes = [1,64,81,87,106,35]#36,44,35]
-#    labels = ['Aortic root','Descending aorta','Abdominal aorta',
-#              'Left common iliac','Right femoral','Right radial pressure']
-
+    labels = ['Aortic root','Thoracic aorta','Abdominal aorta',
+              'Left common iliac','Right femoral','Right radial pressure']
 #    nodes = [1,81,87,106]#36,44,35]
 #    labels = ['Aortic root','Abdominal aorta','Left common iliac','Right femoral']
-
-    nodes = [1,16,82,100]#36,44,35]
-    labels = ['Aortic root','Abdominal aorta','Left common iliac','Right femoral']
-
+#    nodes = [1,10,16,82,100]#36,44,35]
+#    labels = ['aortic root','thoracic aorta','abdominal aorta','left common iliac','right femoral']
               #,'Right common carotid',
 #              'Left internal carotid','Right vertebral']
 #    outputDirs = ['output/Reymond2009ExpInputCellML']#_pOutRCR100Hg',
                  # 'output/Reymond2009ExpInputNonreflecting']
-    outputDirs = ['output/Reymond2009ExpInputNonreflecting']#_pOutRCR100Hg',
+    outputDirs = ['output/Reymond2009ExpInputNonreflecting_pExt70']#_pOutRCR100Hg',
+    pdfFile = '/hpc/dlad004/thesis/Thesis/figures/cfd/55ArteryNonReflectingQP.pdf'
 
 #    outputDirs = ['/media/F0F095D5F095A300/opencmissStorage/1D/Reymond/Reymond2009ExpInputCellML_40']
-Post(nodes,labels,outputDirs)
+Post(nodes,labels,outputDirs,pdfFile)
 
 print "Processing Completed!"
 
