@@ -65,16 +65,18 @@ matplotlib.rc('lines', linewidth=2, color='r')
 #=================================================================
 # C o n t r o l   P a n e l
 #=================================================================
-numberOfProcessors = 1
-woNums = ['10.0']
-meshName = 'hexCylinder140'
+numberOfProcessors = 8
+woNums = ['0.1']
+#meshName = 'hexCylinder140'
+meshName = 'hexCylinder13'
 axialComponent = 1
-meshLabel = 'Coarse mesh'
-#meshLabel = 'Fine mesh'
+#meshLabel = 'Coarse mesh'
+meshLabel = 'Fine mesh'
 meshType = 'Quadratic'
-thetas = ['1.0','0.5']
+thetas = ['1.0']
 #thetas = ['1.0']
-lineColours = ['r-o','b-o','g-o']
+lineColours = ['r-','b-','g-','y-','c-','m-','r-','b-','g-','y-','c-','m-']
+dotColours = ['ro','bo','go','yo','co','mo','ro','bo','go','yo','co','mo']
 dependentFieldNumber = 2
 
 pOffset = 0.0
@@ -84,14 +86,17 @@ length = 10.0
 period = math.pi/2.
 density = 1.0
 cmfeStartTime = 0.0
-cmfeStopTime = period + 0.0000001
+cmfeStopTime = 1.0*period + 0.0000001
 #cmfeTimeIncrements = [period/10.]
-cmfeTimeIncrements = [period/10.,period/25.,period/50,period/200.]#,period/1000.]
-cmfeOutputFrequencies = [2,5,10,40]#,200]
+#cmfeTimeIncrements = [period/10.,period/25.,period/50,period/200.]#,period/1000.]
+cmfeTimeIncrements = [period/10.]
+cmfeOutputFrequencies = [1]
+beta = '0.0'
+#cmfeOutputFrequencies = [2,5,10,40]#,200]
 #cmfeTimeIncrements = [period/10.,period/25.]
 #cmfeOutputFrequencies = [2]
 path = "./output/"
-#path = "/media/F0F095D5F095A300/opencmissStorage/Womersley/"
+#path = "/media/F0F095D5F095A300/opencmissStorage/Womersley/hexCylinder13/"
 #vtuMesh = "/hpc/dlad004/opencmiss/examples/FluidMechanics/NavierStokes/Womersley/input/pyformexMesh/hexCylinder12QuadDef.vtu"
 #vtuMesh = "/hpc/dlad004/opencmiss/examples/FluidMechanics/NavierStokes/Womersley/input/hexCylinder140/hex140.vtk"
 nodeFile = "./input/" + meshName + "/" + meshName + ".C"
@@ -276,9 +281,14 @@ except IOError:
 if readDataFromExnode:
     field = fieldInfo()
     #filename = path + 'Wom' + woNums[0] + 'Dt' + str(round(cmfeTimeIncrements[0],5)) + meshName + '/TIME_STEP_0000.part0.exnode'
-    filename = (path + 'Wom' + woNums[0] + 'Dt' + str(round(cmfeTimeIncrements[0],5)) +  '_' +
-                meshName + meshType+'_theta'+thetas[0]+
-                '/TimeStep_0.part0.exnode')
+    if meshName != 'hexCylinder140':
+        filename = (path + 'Wom' + woNums[0] + 'Dt' + str(round(cmfeTimeIncrements[0],5)) +  '_' +
+                    meshName + meshType+'_theta'+thetas[0]+'_Beta'+beta+
+                    '/TimeStep_0.part0.exnode')
+    else:
+        filename = (path + 'Wom' + woNums[0] + 'Dt' + str(round(cmfeTimeIncrements[0],5)) +  '_' +
+                    meshName + meshType+'_theta'+thetas[0]+
+                    '/TimeStep_0.part0.exnode')
     print(filename)
     try:
         with open(filename):
@@ -311,9 +321,14 @@ if readDataFromExnode:
             for timestep in range(numberOfTimesteps[t]):
                 print('Reading data for timestep: ' + str(timestep*cmfeOutputFrequencies[t]))  
                 for proc in range(numberOfProcessors):
-                    filename = (path + 'Wom' + wo + 'Dt' + str(round(cmfeTimeIncrement,5)) +  '_' +
-                                meshName + meshType+'_theta'+theta+
-                                '/TimeStep_' + str(timestep*cmfeOutputFrequencies[t]) + '.part' + str(proc) +'.exnode')
+                    if meshName != 'hexCylinder140':
+                        filename = (path + 'Wom' + woNums[0] + 'Dt' + str(round(cmfeTimeIncrements[0],5)) +  '_' +
+                                    meshName + meshType+'_theta'+thetas[0]+'_Beta'+beta+
+                                    '/TimeStep_' + str(timestep*cmfeOutputFrequencies[t]) + '.part' + str(proc) +'.exnode')
+                    else:
+                        filename = (path + 'Wom' + woNums[0] + 'Dt' + str(round(cmfeTimeIncrements[0],5)) +  '_' +
+                                    meshName + meshType+'_theta'+thetas[0]+
+                                    '/TimeStep_' + str(timestep*cmfeOutputFrequencies[t]) + '.part' + str(proc) +'.exnode')
                     print(filename)
                     importNodeData = numpy.zeros([totalNumberOfNodes,field.numberOfFields,max(field.numberOfFieldComponents)])
                     readExnodeFile(filename,field,importNodeData,totalNumberOfNodes)
@@ -404,12 +419,12 @@ if exportWSS:
 
 plotTime = True
 #timesteps = [i for i in range(6)]
-timesteps = [0]
+timesteps = [0,1,2]
 w=0
 t = 0
 if plotTime:    
     x = numpy.zeros((len(centerLineNodes)))
-    analytic = numpy.zeros((len(centerLineNodes)))
+    analytic = -numpy.zeros((len(centerLineNodes)))
     numeric = numpy.zeros((len(centerLineNodes)))
     poiseuille = numpy.zeros((len(centerLineNodes)))
     a = numpy.zeros((len(centerLineNodes),2))
@@ -448,11 +463,12 @@ if plotTime:
         print(numeric)
         print(analytic)
 
-        ana, num = plt.plot(x,analytic,lineColours[tIndex],x, numeric,lineColours[tIndex+1])
+        ana, num = plt.plot(x,analytic,lineColours[tIndex],x, numeric,dotColours[tIndex])
         tIndex+=1
 
     fig.legend((ana,  num), ('analytic', 'numeric'), 'upper right')
     plt.show()
+    plt.clf()
 
 
 animateResults = False
@@ -592,7 +608,7 @@ if analyseResults:
     for wo in range(len(woNums)):
         t = 0
         plt.title(meshLabel+' RMSE Velocity')
-        plt.ylabel('Period mean RMSE (cm/s)')
+        plt.ylabel(r'Period mean RMSE (cm s$^{-1}$)')
         plt.xlabel(r'${\Delta t}$ (s)')
         thetaInc = -1
         for theta in thetas:

@@ -77,6 +77,7 @@ def readExnodeHeader(f,fieldComponents):
     s = re.findall(r'\d+', line)
     numberOfVersions = 1
     numberOfFields = int(s[0])
+    #print('number of fields: '+str(numberOfFields))
     for field in range(numberOfFields):
         line=f.readline()
         fieldName = findBetween(line, str(field + 1) + ') ', ',')
@@ -94,6 +95,7 @@ def readExnodeFile(filename,numberOfNodes):
         with open(filename):
             f = open(filename,"r")
             #Read header
+            line=f.readline()
             line=f.readline()
             groupName=findBetween(line, ' Group name: ', '\n')
             fieldComponents = []
@@ -221,19 +223,36 @@ def plotQP (Q,P,realTime,i,arteryNames,startTime,stopTime,writeFigs,writeFigs2,w
 #=================================================================
 # C o n t r o l   P a n e l
 #=================================================================
-timeIncrement = 0.2
-outputFrequency = 10
+timeIncrement = 0.05
+outputFrequency = 1
+numberOfCycles = 5.0
+totalNumberOfNodes = 11#1
+#paths = ['./output/Reymond2009ExpInputNonreflecting_pExt70_new/']
+#paths = ['./output/Reymond2009ExpInputNonreflecting_new/']
+paths = ['./output/simple/']
+# Check conservation of mass between inlet and sum of outlets
+checkBranchFlow = True
+#inlets = [18]
+#outlets = [96,82]
+#boundaries = [18,96,82]
+inlets = [1]
+outlets = [11]
+#outlets = [27, 31, 33, 35, 39, 43, 45, 51, 55, 57, 59, 61, 65, 67, 69, 73, 77, 79, 81, 89, 91, 93, 95, 103, 105, 107, 109, 111] 
+#outlets = [17, 33, 37, 45, 49, 57, 61, 71, 85, 89, 105, 107, 113, 115, 117, 125, 131, 145, 153, 157, 161, 167, 181, 189, 193, 195, 197] 
+#outlets = [25,37,45,47,59,61,77,79,95,105,115,125,131,135]
+
+boundaries = inlets + outlets
+startEvalAtPulse = 1
+
 timeIncrements = [timeIncrement]
 outputFrequencies = [outputFrequency]
 cycleTime = 790.0
-numberOfCycles = 4.0
 startTime = 0.0
 stopTime = cycleTime*numberOfCycles
 pulsePeriod = cycleTime
-totalNumberOfNodes = 197
-paths = ['./output/']
 numberOfProcessors = 1
 density = 0.00105
+
 zeroTolerance = 1.0e-15
 
 # Plot flow and pressure at these nodes
@@ -242,17 +261,13 @@ writeFigs2 = False
 writeFigs2Display = False
 plotNodeQP = False
 plotPulseConvergence = False
-nodes = [1,38,20,65,78,81,98,96]#,65,133]
+#nodes = [1,38,20,65,78,81,98,96]#,65,133]
+nodes = [1,9,16,82,100,30]#,65,133]
 plotNode = 1
 arteryNames = ["Aortic root","R common carotid","L subclavian","Thoracic aorta","L renal","Abdominal aorta","R common iliac","L external iliac"]
 colors = ['k','b','r','y','g','c','m']#,'k--','b--','r--','y--','g--','c--','m--']
 
-# Check conservation of mass between inlet and sum of outlets
-checkBranchFlow = True
-inlets = [1]
-outlets = [17, 33, 37, 45, 49, 57, 61, 71, 85, 89, 105, 107, 113, 115, 117, 125, 131, 145, 153, 157, 161, 167, 181, 189, 193, 195, 197] 
-#outlets = [25,37,45,47,59,61,77,79,95,105,115,125,131,135]
-evalAtPulse = 1
+
 
 writeInit = False
 
@@ -274,7 +289,7 @@ for dataset in range(numberOfDatasets):
     for timestep in range(numberOfTimesteps):
         for proc in range(numberOfProcessors):
             filename = path + 'MainTime_' + str(times[dataset][timestep]) + '.part' + str(proc) +'.exnode'
-            #print(filename)
+            print(filename)
             timeData = readExnodeFile(filename,totalNumberOfNodes)
             nodeData[dataset,timestep,:,:,:,:] = timeData
 
@@ -284,12 +299,12 @@ Q = numpy.zeros([numberOfDatasets,numberOfNodes,numberOfTimesteps])
 A = numpy.zeros([numberOfDatasets,numberOfNodes,numberOfTimesteps])
 P = numpy.zeros([numberOfDatasets,numberOfNodes,numberOfTimesteps])
 
-for dataset in range(numberOfDatasets):
-    for i in range(numberOfNodes):
-        node = nodes[i]
-        Q[dataset,i,:] = nodeData[dataset,:,node-1,1,0,0]
-        A[dataset,i,:] = nodeData[dataset,:,node-1,1,1,0]
-        P[dataset,i,:] = nodeData[dataset,:,node-1,5,0,0]*0.0075*(1000.**2.) # convert Pa to mmHg
+# for dataset in range(numberOfDatasets):
+#     for i in range(numberOfNodes):
+#         node = nodes[i]
+#         Q[dataset,i,:] = nodeData[dataset,:,node-1,1,0,0]
+#         A[dataset,i,:] = nodeData[dataset,:,node-1,1,1,0]
+#         P[dataset,i,:] = nodeData[dataset,:,node-1,5,0,0]*0.0075*(1000.**2.) # convert Pa to mmHg
 
 if writeInit:
     initData = numpy.zeros([totalNumberOfNodes,4,4])
@@ -311,6 +326,7 @@ cycleDifference = numpy.zeros([numberOfDatasets,numberOfPulses,timestepsInPulseP
 percentCycleDifference = numpy.zeros([numberOfDatasets,numberOfPulses,timestepsInPulsePeriod,totalNumberOfNodes,2])
 rmsCycle = numpy.zeros([numberOfDatasets,numberOfPulses,2])
 percentRmsCycle = numpy.zeros([numberOfDatasets,numberOfPulses,2])
+avgPercentCycle = numpy.zeros([numberOfDatasets,numberOfPulses,2])
 stdCycle = numpy.zeros([numberOfDatasets,numberOfPulses,2])
 cycleTime = [i*timeIncrement*outputFrequency for i in range(timestepsInPulsePeriod)]
 
@@ -325,19 +341,20 @@ for dataset in range(numberOfDatasets):
     for cycle in range(numberOfPulses):
         if cycle > 0:
             cycleDifference[dataset,cycle,:,:,:] = (cycleData[dataset,cycle,:,:,:] - cycleData[dataset,cycle-1,:,:,:])
-            percentCycleDifference[dataset,cycle,:,:,:] = (cycleData[dataset,cycle,:,:,:] - cycleData[dataset,cycle-1,:,:,:])/(cycleData[dataset,cycle,:,:,:]+zeroTolerance)*100.
+#            percentCycleDifference[dataset,cycle,:,:,:] = (cycleData[dataset,cycle,:,:,:] - cycleData[dataset,cycle-1,:,:,:])/(cycleData[dataset,cycle,:,:,:]+zeroTolerance)*100.
+            percentCycleDifference[dataset,cycle,:,:,:] = (cycleData[dataset,cycle,:,:,:] - cycleData[dataset,cycle-1,:,:,:])/(cycleData[dataset,cycle-1,:,:,:]+zeroTolerance)*100.
             plotDifferences = False
             if plotDifferences:
                 plt.subplot(211)
-                l1, = plt.plot(cycleTime, cycleData[dataset,cycle-1,:,nodes[1]-1,0], 'b')
-                l2, = plt.plot(cycleTime, cycleData[dataset,cycle,:,nodes[1]-1,0], 'r')
+                l1, = plt.plot(cycleTime, cycleData[dataset,cycle-1,:,nodes[1]-1,0], 'b',alpha=0.5)
+                l2, = plt.plot(cycleTime, cycleData[dataset,cycle,:,nodes[1]-1,0], 'r',alpha=0.5)
                 plt.legend( (l1, l2), ('previous pulse', 'current'), 'upper right', shadow=True)
                 plt.ylabel('Flow (cm^3/s)')
                 plt.xlabel('time (ms)')
                 plt.grid(True)
                 plt.subplot(212)
-                l1, = plt.plot(cycleTime, cycleData[dataset,cycle-1,:,nodes[1]-1,1], 'b')
-                l2, = plt.plot(cycleTime, cycleData[dataset,cycle,:,nodes[1]-1,1], 'r')
+                l1, = plt.plot(cycleTime, cycleData[dataset,cycle-1,:,nodes[1]-1,1], 'b',alpha=0.5)
+                l2, = plt.plot(cycleTime, cycleData[dataset,cycle,:,nodes[1]-1,1], 'r',alpha=0.5)
                 plt.ylabel('Pressure (mmHg)')
                 plt.xlabel('time (ms)')
                 plt.grid(True)
@@ -353,6 +370,8 @@ for dataset in range(numberOfDatasets):
 
         percentRmsCycle[dataset,cycle,0] = numpy.sqrt(numpy.mean(percentCycleDifference[dataset,cycle,:,:,0])**2)
         percentRmsCycle[dataset,cycle,1] = numpy.sqrt(numpy.mean(percentCycleDifference[dataset,cycle,:,:,1])**2)
+
+        avgPercentCycle = numpy.average
 
         stdCycle[dataset,cycle,0] = numpy.std(cycleDifference[dataset,cycle,:,:,0])
         stdCycle[dataset,cycle,1] = numpy.std(cycleDifference[dataset,cycle,:,:,1])
@@ -520,7 +539,7 @@ if checkBranchFlow:
     inflowData = numpy.zeros((numberOfDatasets,len(inlets),timestepsInPulsePeriod))
     outflowData = numpy.zeros((numberOfDatasets,len(outlets),timestepsInPulsePeriod))
 
-    plotStartTime = float(evalAtPulse*pulsePeriod)
+    plotStartTime = float(startEvalAtPulse*pulsePeriod)
     plotTime = [(plotStartTime + i*timeIncrement*outputFrequency) for i in range(timestepsInPulsePeriod)]
     massIn = numpy.zeros((numberOfDatasets,numberOfPulses))
     massOut = numpy.zeros((numberOfDatasets,numberOfPulses))
@@ -528,27 +547,141 @@ if checkBranchFlow:
     error = numpy.zeros((numberOfDatasets,numberOfPulses))
     #cycleData = numpy.zeros([numberOfPulses,timestepsInPulsePeriod,totalNumberOfNodes,2])
 
+    # for dataset in range(numberOfDatasets):
+    #     for cycle in range(numberOfPulses):
+    #         l = 0
+    #         iindex = 0
+    #         oindex = 0
+    #         inflowData = numpy.zeros((numberOfDatasets,len(inlets),timestepsInPulsePeriod))
+    #         outflowData = numpy.zeros((numberOfDatasets,len(outlets),timestepsInPulsePeriod))
+    #         for inlet in inlets:
+    #             for t in timestepsInPulsePeriod:
+    #                 if (cycleData[dataset,cycle,t,inlet-1,0] > -zeroTolerance):
+    #                     inflowData[dataset,iindex,t] = cycleData[dataset,cycle,t,inlet-1,0]
+    #                 else:
+    #                     outlowData[dataset,iindex,t] = cycleData[dataset,cycle,t,inlet-1,0]
+
+    #             massIn[dataset,cycle] += density*scipy.integrate.simps(inflowData[dataset,iindex,t])
+    #             #inflowData[dataset,iindex,:] = cycleData[dataset,cycle,:,inlet-1,0]
+    #     #        plt.plot(plotTime,inflowData[iindex,:],colors[l])
+    #     #        massIn[dataset,cycle] += density*scipy.integrate.simps(inflowData[dataset,iindex,:])
+    #             l += 1
+    #             iindex += 1
+    #         for outlet in outlets:
+    #             outflowData[dataset,oindex,:] = cycleData[dataset,cycle,:,outlet-1,0]
+    #     #        plt.plot(plotTime,outflowData[oindex,:],colors[l])
+    #             massOut[dataset,cycle] += density*scipy.integrate.simps(outflowData[dataset,oindex,:])
+    #             l += 1
+    #             oindex += 1
+
+    #         error[dataset,cycle] = massIn[dataset,cycle] - massOut[dataset,cycle]
+    #         percentError[dataset,cycle] = (massIn[dataset,cycle] - massOut[dataset,cycle])/massIn[dataset,cycle]*100.
+
+#    for t in range(timestepsInPulsePeriod):
+        
+
     for dataset in range(numberOfDatasets):
         for cycle in range(numberOfPulses):
             l = 0
             iindex = 0
             oindex = 0
-            for inlet in inlets:
-                inflowData[dataset,iindex,:] = cycleData[dataset,cycle,:,inlet-1,0]
-        #        plt.plot(plotTime,inflowData[iindex,:],colors[l])
-                massIn[dataset,cycle] += density*scipy.integrate.simps(inflowData[dataset,iindex,:])
-                l += 1
-                iindex += 1
-            for outlet in outlets:
-                outflowData[dataset,oindex,:] = cycleData[dataset,cycle,:,outlet-1,0]
-        #        plt.plot(plotTime,outflowData[oindex,:],colors[l])
-                massOut[dataset,cycle] += density*scipy.integrate.simps(outflowData[dataset,oindex,:])
-                l += 1
-                oindex += 1
+            bindex =0
+            inflowData = numpy.zeros((numberOfDatasets,len(boundaries),timestepsInPulsePeriod))
+            outflowData = numpy.zeros((numberOfDatasets,len(boundaries),timestepsInPulsePeriod))
+            flowIn = numpy.zeros((timestepsInPulsePeriod))
+            flowOut = numpy.zeros_like(flowIn)
+            qInPlot = numpy.zeros((timestepsInPulsePeriod))
+            qOutPlot = numpy.zeros((timestepsInPulsePeriod))
+            bindex = -1
+            for boundary in boundaries:
+                bindex +=1
+                for t in range(timestepsInPulsePeriod):
+                    boundaryFlow = cycleData[dataset,cycle,t,boundary-1,0]
+                    if boundary in inlets:
+                        qInPlot[t] += boundaryFlow
+                        if (boundaryFlow > -zeroTolerance):
+                            #inflowData[dataset,bindex,t] += boundaryFlow
+                            flowIn[t] += boundaryFlow
+                        else:
+                            #outflowData[dataset,bindex,t] += -boundaryFlow
+                            flowOut[t] += -boundaryFlow
+                    if boundary in outlets:
+                        qOutPlot[t] += boundaryFlow
+                        if (boundaryFlow > -zeroTolerance):
+                            #outflowData[dataset,bindex,t] += boundaryFlow
+                            flowOut[t] += boundaryFlow
+                        else:
+                            #inflowData[dataset,bindex,t] += -boundaryFlow
+                            flowIn[t] += -boundaryFlow
+
+                # # additional point for romb integration
+                # t = timestepsInPulsePeriod
+                # boundaryFlow = cycleData[dataset,cycle+1,0,boundary-1,0]
+                # if boundary in inlets:
+                #     if (boundaryFlow > -zeroTolerance):
+                #         flowIn[t] += boundaryFlow
+                #     else:
+                #         flowOut[t] += -boundaryFlow
+                # if boundary in outlets:
+                #     if (boundaryFlow > -zeroTolerance):
+                #         flowOut[t] += boundaryFlow
+                #     else:
+                #         flowIn[t] += -boundaryFlow
+                # print('flow in')
+                # print(flowIn)
+                # print('flow out')
+                # print(flowOut)
+
+            #massIn[dataset,cycle] += density*scipy.integrate.simps(inflowData[dataset,iindex,:])
+            # massIn[dataset,cycle] = density*scipy.integrate.simps(flowIn)
+            # massOut[dataset,cycle] = density*scipy.integrate.simps(flowOut)
+
+            # plotTimes = []
+            # timestepSize = outputFrequency*timeIncrement
+            # for t in range(timestepsInPulsePeriod): 
+            #     plotTime = t*timestepSize
+            #     plotTimes.append(plotTime)
+
+            timestepSize = outputFrequency*timeIncrement
+            #massIn[dataset,cycle] = density*scipy.integrate.romb(flowIn,dx=timestepSize)
+            #massOut[dataset,cycle] = density*scipy.integrate.romb(flowOut,dx=timestepSize)
+            massIn[dataset,cycle] = density*scipy.integrate.simps(flowIn,dx=timestepSize)
+            massOut[dataset,cycle] = density*scipy.integrate.simps(flowOut,dx=timestepSize)
+
+            # plt.clf()
+            # plt.plot(plotTimes,flowIn,'g')
+            # plt.plot(plotTimes,flowOut,'k')
+            # plt.show()
+            # plt.clf()
+
+            # plt.plot(plotTimes,qInPlot,'r',label='inflow')
+            # plt.plot(plotTimes,qOutPlot,'b',label='sum of outflows')
+            # plt.ylabel(r'Flow rate (mLs$^{-1}$)')
+            # plt.xlabel('Time (ms)')
+            # plt.legend(loc = (0.7, 0.7))
+            # plt.show()
+            # plt.clf()
+
+        #         massIn[dataset,cycle] += density*scipy.integrate.simps(inflowData[dataset,iindex,t])
+        #         #inflowData[dataset,iindex,:] = cycleData[dataset,cycle,:,inlet-1,0]
+        # #        plt.plot(plotTime,inflowData[iindex,:],colors[l])
+        # #        massIn[dataset,cycle] += density*scipy.integrate.simps(inflowData[dataset,iindex,:])
+        #         l += 1
+        #         iindex += 1
+        #     for outlet in outlets:
+        #         outflowData[dataset,oindex,:] = cycleData[dataset,cycle,:,outlet-1,0]
+        # #        plt.plot(plotTime,outflowData[oindex,:],colors[l])
+        #         massOut[dataset,cycle] += density*scipy.integrate.simps(outflowData[dataset,oindex,:])
+        #         l += 1
+        #         oindex += 1
 
             error[dataset,cycle] = massIn[dataset,cycle] - massOut[dataset,cycle]
             percentError[dataset,cycle] = (massIn[dataset,cycle] - massOut[dataset,cycle])/massIn[dataset,cycle]*100.
 
+    print('mass in: ')
+    print(massIn)
+    print('mass out: ')
+    print(massOut)
     
 #    plt.plot(cycles,percentError,'k')
 
@@ -560,30 +693,57 @@ if checkBranchFlow:
 #     plt.grid(True)
 #     plt.title('Error in mass conservation (inlet - outlets)')
 
+    print('error (inlet - outlets): ')
+    print(error)
     print('percent mass error (inlet - outlets): ')
     print(percentError)
 
+    absPercentError = abs(percentError)
+    absError = abs(error)
     # Free up some memory
     nodeData = numpy.zeros([numberOfDatasets,numberOfTimesteps,totalNumberOfNodes,8,3,4])
     gc.collect()
 
-    plt.subplot(111)
-#    plt.bar(cycles-barWidth/2,percentError,barWidth,color='b')
-    if numberOfDatasets > 1:
-        l1, = plt.plot(cycles, percentError[0,:], 'b')
-        l2, = plt.plot(cycles, percentError[1,:], 'r')
-        plt.legend( (l1, l2), (r'$\Delta{t}=0.1$ $ms$', 
-                               r'$\Delta{t}=0.01$ $ms$'), 'upper right', shadow=True)
-    else:
-        plt.plot(cycles,percentError[0,:],'b')
-    plt.ylabel(r'Percent mass error ($\%\epsilon_{mass}$)')
-    plt.xlabel(r'Pulse number')
-    plt.ylim((0,11.0))
-    plt.yscale('log')
-#    plt.xticks([0,1,2,4,6,8,10,12])
-    plt.xlim((0,numberOfCycles+1))
-    plt.grid(True)
-    plt.title(r'Percent error in mass conservation (inlet - outlets)')
-    if writeFigs:
-        plt.savefig('/hpc_atog/dlad004/thesis/Thesis/figures/cfd/1DMassConservation.pdf', format='pdf')
-    plt.show()    
+#     plt.subplot(111)
+# #    plt.bar(cycles-barWidth/2,percentError,barWidth,color='b')
+#     if numberOfDatasets > 1:
+#         l1, = plt.plot(cycles, absPercentError[0,:], 'b')
+#         l2, = plt.plot(cycles, absPercentError[1,:], 'r')
+#         plt.legend( (l1, l2), (r'$\Delta{t}=0.1$ $ms$', 
+#                                r'$\Delta{t}=0.01$ $ms$'), 'upper right', shadow=True)
+#     else:
+#         plt.plot(cycles,absPercentError[0,:],'b')
+#     plt.ylabel(r'Percent mass error ($\%\epsilon_{mass}$)')
+#     plt.xlabel(r'Pulse number')
+#     #plt.ylim((0,11.0))
+# #    plt.yscale('log')
+# #    plt.xticks([0,1,2,4,6,8,10,12])
+#     plt.xlim((0,numberOfCycles+1))
+#     plt.grid(True)
+#     plt.title(r'Percent error in mass conservation (inlet - outlets)')
+#     if writeFigs:
+#         plt.savefig('/hpc_atog/dlad004/thesis/Thesis/figures/cfd/1DPercentMassConservation.pdf', format='pdf')
+#     plt.show()    
+#     plt.clf()
+
+#     plt.subplot(111)
+# #    plt.bar(cycles-barWidth/2,percentError,barWidth,color='b')
+#     if numberOfDatasets > 1:
+#         l1, = plt.plot(cycles, absPercentError[0,:], 'b')
+#         l2, = plt.plot(cycles, absPercentError[1,:], 'r')
+#         plt.legend( (l1, l2), (r'$\Delta{t}=0.1$ $ms$', 
+#                                r'$\Delta{t}=0.01$ $ms$'), 'upper right', shadow=True)
+#     else:
+#         plt.plot(cycles,absError[0,:],'b')
+#     plt.ylabel(r'Mass, (g)')
+#     plt.xlabel(r'Pulse number')
+#     #plt.ylim((0,11.0))
+# #    plt.yscale('log')
+# #    plt.xticks([0,1,2,4,6,8,10,12])
+#     plt.xlim((0,numberOfCycles+1))
+#     plt.grid(True)
+#     plt.title(r'Cycle mass error (inlet - outlets)')
+#     if writeFigs:
+#         plt.savefig('/hpc_atog/dlad004/thesis/Thesis/figures/cfd/1DMassConservation.pdf', format='pdf')
+#     plt.show()    
+#     plt.clf()

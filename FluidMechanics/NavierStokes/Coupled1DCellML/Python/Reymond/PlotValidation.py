@@ -202,10 +202,16 @@ def Post(nodes,arteryLabels,outputDirs,pdfFile):
 if len(sys.argv) > 1:
     nodes = int(sys.argv[1:])
 else:
-    nodes = [1,9,16,82,100,30]#36,44,35]
+#    nodes = [1,9,16,82,100,30]#36,44,35]
+
+    nodes = [100,102,104]#36,44,35]
+    labels = ['femoral','anterior tibial','posterior tibial']
+    outputDirs = ['output/Reymond2009ExpInputNonreflecting_new']#_pOutRCR100Hg',
+
 #    nodes = [1,64,81,87,106,35]#36,44,35]
-    labels = ['Aortic root','Thoracic aorta','Abdominal aorta',
-              'Left common iliac','Right femoral','Right radial pressure']
+#    labels = ['Aortic root','Thoracic aorta','Abdominal aorta',
+#              'Left common iliac','Right femoral','Right radial pressure']
+
 #    nodes = [1,81,87,106]#36,44,35]
 #    labels = ['Aortic root','Abdominal aorta','Left common iliac','Right femoral']
 #    nodes = [1,10,16,82,100]#36,44,35]
@@ -214,10 +220,12 @@ else:
 #              'Left internal carotid','Right vertebral']
 #    outputDirs = ['output/Reymond2009ExpInputCellML']#_pOutRCR100Hg',
                  # 'output/Reymond2009ExpInputNonreflecting']
-    outputDirs = ['output/Reymond2009ExpInputNonreflecting_pExt70']#_pOutRCR100Hg',
-    pdfFile = '/hpc/dlad004/thesis/Thesis/figures/cfd/55ArteryNonReflectingQP.pdf'
+#    outputDirs = ['output/Reymond2009ExpInputNonreflecting_pExt70']#_pOutRCR100Hg',
+#    pdfFile = '/hpc/dlad004/thesis/Thesis/figures/cfd/55ArteryNonReflectingQP.pdf'
 
 #    outputDirs = ['/media/F0F095D5F095A300/opencmissStorage/1D/Reymond/Reymond2009ExpInputCellML_40']
+
+pdfFile = ''
 Post(nodes,labels,outputDirs,pdfFile)
 
 print "Processing Completed!"

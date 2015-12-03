@@ -46,6 +46,7 @@ import sys, os
 
 import gzip
 import numpy
+import gc
 import math
 import re
 from scipy import interpolate
@@ -76,7 +77,7 @@ meshType = 'Quadratic'
 #thetas = ['1.0','0.5']
 thetas = ['1.0']
 betas = ['0.0','0.2','1.0']
-#betas = ['0.0']
+#betas = ['1.0']
 #betas = ['1.0']
 lineColours = ['r-o','b-o','g-o']
 plainLineColours = ['r-','b-','g-']
@@ -91,10 +92,10 @@ amplitude = 1.0
 radius = 0.5
 length = 10.0
 period = math.pi/2.
-phaseShift = 0.0#0.75*period # converts cos to sin
+phaseShift = 0.75*period # converts cos to sin
 density = 1.0
-cmfeStartTime = 0.0
-cmfeStopTime = period + 0.0000001
+cmfeStartTime = 3.0*period
+cmfeStopTime = 4.0*period + 0.0000001
 #cmfeTimeIncrements = [period/10.]
 #cmfeTimeIncrements = [period/10.,period/25.,period/50,period/200.]#,period/1000.]
 cmfeTimeIncrements = [period/1000.]
@@ -120,7 +121,7 @@ exportVelocity = False
 exportWSS = False
 
 outputFolder = '/hpc_atog/dlad004/thesis/Thesis/figures/cfd/'
-writeFigs = True
+writeFigs = False
 showFigs = True
 
 #=================================================================
@@ -344,18 +345,23 @@ if readDataFromExnode:
 #    for wo in woNums:
     betaInc = -1
     theta = thetas[0]
+    zeroTolerance = 0.00001
     for beta in betas:
         betaInc +=1
         t = 0
         print('Reading data for Womersley #: ' + wo)  
         for cmfeTimeIncrement in cmfeTimeIncrements:
             print('   Time resolution: ' + str(cmfeTimeIncrement))
+            startStep = 0
+            if cmfeStartTime > zeroTolerance:
+                startStep = int(cmfeStartTime/cmfeTimeIncrement)
+            print('   Starting from timestep: '+str(startStep))
             for timestep in range(numberOfTimesteps[t]):
                 print('Reading data for timestep: ' + str(timestep*cmfeOutputFrequencies[t]))  
                 for proc in range(numberOfProcessors):
                     filename = (path + 'Wom' + wo + 'Dt' + str(round(cmfeTimeIncrement,5)) +  '_' +
                                 meshName + meshType+'_theta'+theta+'_Beta'+beta+
-                                '/TimeStep_' + str(timestep*cmfeOutputFrequencies[t]) + '.part' + str(proc) +'.exnode')
+                                '/TimeStep_' + str(startStep + timestep*cmfeOutputFrequencies[t]) + '.part' + str(proc) +'.exnode')
                     print(filename)
                     importNodeData = numpy.zeros([totalNumberOfNodes,field.numberOfFields,max(field.numberOfFieldComponents)])
                     readExnodeFile(filename,field,importNodeData,totalNumberOfNodes)
@@ -495,6 +501,74 @@ if plotTime:
 
     fig.legend((ana,  num), ('analytic', 'numeric'), 'upper right')
     plt.show()
+
+plotBoundaryTime = True
+#timesteps = [i for i in range(6)]
+timesteps = [0]
+w=0
+t = 0
+if plotBoundaryTime:    
+    x = numpy.zeros((len(centerLineNodes)))
+    analytic = numpy.zeros((len(centerLineNodes)))
+    numeric = numpy.zeros((len(centerLineNodes)))
+    poiseuille = numpy.zeros((len(centerLineNodes)))
+    a = numpy.zeros((len(centerLineNodes),2))
+    n = numpy.zeros((len(centerLineNodes),2))
+    p = numpy.zeros((len(centerLineNodes),2))
+    aSort = numpy.zeros((len(centerLineNodes),2))
+    nSort = numpy.zeros((len(centerLineNodes),2))
+    pSort = numpy.zeros((len(centerLineNodes),2))
+    fig = plt.figure()
+    zeroTolerance = 1.0e-4
+    inletLineNodes = []
+    outletLineNodes = []
+    for node in inletFaceNodes:
+        if abs(nodeData[w,t,0,node,0,2]) < zeroTolerance:
+            inletLineNodes.append(node)
+    for node in outletFaceNodes:
+        if abs(nodeData[w,t,0,node,0,2]) < zeroTolerance:
+            outletLineNodes.append(node)
+    tIndex = 0
+    for timestep in timesteps:
+        for beta in betas:
+            i = 0
+            for node in inletLineNodes:
+                x[i] = nodeData[w,t,timestep,node,0,0]
+                analytic[i] = analyticData[w,t,timestep,node]
+                numeric[i] = nodeData[w,t,timestep,node,dependentFieldNumber,1]
+                a[i,0] = x[i]
+                a[i,1] = analytic[i]
+                n[i,0] = x[i]
+                n[i,1] = numeric[i]
+                i += 1
+
+            aSort = a[a[:,0].argsort()]
+            nSort = n[n[:,0].argsort()]
+
+            x = aSort[:,0]
+            analytic = aSort[:,1]
+            numeric = nSort[:,1]
+            print(numeric)
+            print(analytic)
+
+            #ana, num = plt.plot(x,analytic,lineColours[tIndex],x, numeric,lineColours[tIndex+1])
+            if (tIndex == 0):
+                plt.plot(x,analytic,'k',label='analytic')
+            plt.plot(x,numeric,lineColours[tIndex],label=r'$\beta$='+beta,alpha=0.5)
+            tIndex+=1
+
+    #fig.legend((ana,  num), ('analytic', 'numeric'), 'upper right')
+    plt.legend(loc = (0.5, -0.5),ncol=2)
+    if writeFigs:
+        name = outputFolder + meshName + meshType + 'inletBetaVel'
+        fname = name.replace('.','Pt') + '.pdf'
+        #fname = outputFolder + meshName + meshType + 'Beta'+beta+'Pin'+'.pdf'
+        fname = fname.replace(' ','')
+        print(fname)
+        pylab.savefig(fname,format='pdf',dpi=300,bbox_inches='tight')
+    if showFigs:
+        plt.show()
+    plt.clf()
 
 
 animateResults = False
@@ -670,8 +744,8 @@ if analyseResults:
                         numData = numpy.zeros_like(anaData)
                         error = numpy.zeros_like(anaData)
                         i = 0
-                        flowInlet[betaInc,timestep] = nodeData[betaInc,t,timestep,inletFaceNodes[0],flowPressureFieldNumber,0]#*inletNormal
-                        pressureInlet[betaInc,timestep] = nodeData[betaInc,t,timestep,inletFaceNodes[0],flowPressureFieldNumber,1]#*inletNormal
+                        flowInlet[betaInc,timestep] = nodeData[betaInc,t,timestep,inletFaceNodes[0],flowPressureFieldNumber,0]
+                        pressureInlet[betaInc,timestep] = nodeData[betaInc,t,timestep,inletFaceNodes[0],flowPressureFieldNumber,1]*inletNormal
                         for node in inletFaceNodes:
                             anaData[i,axialComponent] = analyticData[wo,t,timestep,node]
                             numData[i,:] = nodeData[betaInc,t,timestep,node,dependentFieldNumber,0:3]
@@ -683,7 +757,7 @@ if analyseResults:
                         numData = numpy.zeros_like(anaData)
                         error = numpy.zeros_like(anaData)
                         i = 0
-                        flowOutlet[betaInc,timestep] = nodeData[betaInc,t,timestep,outletFaceNodes[0],flowPressureFieldNumber,0]#*inletNormal
+                        flowOutlet[betaInc,timestep] = nodeData[betaInc,t,timestep,outletFaceNodes[0],flowPressureFieldNumber,0]*inletNormal
                         pressureOutlet[betaInc,timestep] = nodeData[betaInc,t,timestep,outletFaceNodes[0],flowPressureFieldNumber,1]#*inletNormal
                         for node in outletFaceNodes:
                             anaData[i,axialComponent] = analyticData[wo,t,timestep,node]
@@ -709,6 +783,9 @@ if analyseResults:
                 timeIncrements.append(cmfeTimeIncrement)
                 #print(cmfeTimeIncrement)
 
+            # Free up some memory
+            gc.collect()
+
             plt.title(r'Average pressure at boundaries, ${\beta}$='+ beta)
             plt.ylabel(r'Pressure (kg cm$^{-1}$ s$^{-2}$)')
             #plt.ylim(-1.05, 1.05)
@@ -718,9 +795,10 @@ if analyseResults:
             plt.plot(timesteps,pressureOutlet[betaInc,:],dashLineColours[1],label = ('Model outlet'))
             plt.plot(analyticTimes,anaPressureOut,plainLineColours[1],label = ('Analytic outlet'))
             #plt.plot(timesteps,flowOutlet[betaInc,:],dotColours[1],label = ('Outlet'))
-            plt.legend(loc = (0.7, 0.75))
+            if (beta=='1.0'):
+                plt.legend(loc = (0.5, -0.5),ncol=2)
             if writeFigs:
-                name = outputFolder + meshName + meshType + 'Beta'+beta+'P'
+                name = outputFolder + meshName + meshType + 'Beta'+beta+'P_noInit'
                 fname = name.replace('.','Pt') + '.pdf'
                 #fname = outputFolder + meshName + meshType + 'Beta'+beta+'Pin'+'.pdf'
                 fname = fname.replace(' ','')
@@ -752,9 +830,10 @@ if analyseResults:
             plt.plot(timesteps,flowInlet[betaInc,:],lineColours[0],label = ('Inlet'),alpha=0.5)
             plt.plot(timesteps,flowOutlet[betaInc,:],lineColours[1],label = ('Outlet'),alpha=0.5)
             plt.plot(analyticTimes,anaFlow,'k-',label = ('Analytic'))
-            plt.legend(loc = (0.7, 0.75))
+            if (beta=='1.0'):
+                plt.legend(loc = (0.5, -0.5),ncol=2)
             if writeFigs:
-                name = outputFolder + meshName + meshType + 'Beta'+beta+'Q'
+                name = outputFolder + meshName + meshType + 'Beta'+beta+'Q_noInit'
                 fname = name.replace('.','Pt') + '.pdf'
                 #fname = outputFolder + meshName + meshType + 'Beta'+beta+'Q'+'.pdf'
                 fname = fname.replace(' ','')

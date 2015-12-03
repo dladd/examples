@@ -116,7 +116,12 @@ def readFirstHeader(f,info):
     #Read header info
 #    print('reading HEADER')
     line=f.readline()
+    for i in range(3):
+        if 'Fields' not in line:
+            line=f.readline()
     s = re.findall(r'\d+', line)
+    print(line)
+    print(s)
     info.numberOfFields = int(s[0])
     for field in range(info.numberOfFields):
         line=f.readline()
@@ -133,6 +138,9 @@ def readExnodeHeader(f,numberOfFieldComponents):
     #Read header info
 #    print('reading HEADER')
     line=f.readline()
+    for i in range(3):
+        if 'Fields' not in line:
+            line=f.readline()
     s = re.findall(r'\d+', line)
     numberOfFields = int(s[0])
 #    print('  number of fields ' + str(numberOfFields))
@@ -155,6 +163,8 @@ def readExnodeFile(filename,info,nodeData,totalNumberOfNodes):
 
             #Read header
             line=f.readline()
+            if 'Region' in line:
+                line=f.readline()
             info.group=findBetween(line, ' Group name: ', '\n')
             numberOfFieldComponents = []
             numberOfFields = 0
@@ -201,7 +211,7 @@ def readExnodeFile(filename,info,nodeData,totalNumberOfNodes):
 #=================================================================
 
 #ReynoldsNumbers = [100,100,400,400,1000,1000,2500,2500,3200,3200,5000]#,5000,5000]
-ReynoldsNumbers = [2500,2500]
+ReynoldsNumbers = [1000,1000]
 #ReynoldsNumbers = [5000]
 #ReynoldsNumbers = [100,400,1000,2500,3200,5000]
 # 441=10Elem, 1681=20Elem, 3721=30Elem, 6561=40Elem 14641 = 60Elem, 
@@ -212,7 +222,7 @@ compareSolutions = ['./doc/ghia.txt','./doc/erturk.txt','./doc/botella.txt']
 compareMarkers = ['yo','gs','c^']
 compareNames = ['Ghia','Erturk','Botella']
 #numberOfProcessors = [4,4,4,4,4,4,4,4,4,4,4,4]
-numberOfProcessors = [1]*2
+numberOfProcessors = [4]*2
 RBS = [True,False]
 #RBS.append(True)
 figsDir = "/hpc/dlad004/thesis/Thesis/figures/cfd/"
@@ -429,8 +439,7 @@ if plotData:
     #fname = 'C0LidReAnalysis' + 'Dofs' + str(totalNumberOfNodes) + '.pdf'
     if writeToFigs:
         fname = figsDir + fname
-    
-    pylab.savefig(fname,format='pdf',dpi=300,bbox_inches='tight')
-    #pylab.show()
+        pylab.savefig(fname,format='pdf',dpi=300,bbox_inches='tight')
+    pylab.show()
 
     

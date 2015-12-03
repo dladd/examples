@@ -117,6 +117,9 @@ nonReflecting            = True    # Set to use non-reflecting outlet boundaries
 CheckTimestepStability   = False   # Set to do a basic check of the stability of the hyperbolic problem based on the timestep size
 initialiseFromFile       = False   # Set to initialise values
 ProgressDiagnostics      = True   # Set to diagnostics
+simpleTube               = False   # Set to solve over a simple 1d tube 
+simpleBif                = False   # Set to solve over a simple 1d tube 
+reymondRefined                = True   # Set to solve over a simple 1d tube 
 
 if(nonReflecting and RCRBoundaries):
     sys.exit('Please set either RCR or non-reflecting boundaries- not both.')
@@ -136,7 +139,13 @@ nodeCoordinates = []
 branchNodeElements = []
 terminalArteryNames = []
 RCRParameters = []
-filename='input/Reymond2009_Nodes.csv'
+if simpleTube:
+    if simpleBif:
+        filename='input/simpleBif/simpleBifNodes.csv'
+    else:
+        filename='input/simpleTube/simpleNode.csv'
+else:
+    filename='input/Reymond2009_Nodes.csv'
 Utilities1D.CsvNodeReader2(filename,inputNodeNumbers,branchNodeNumbers,coupledNodeNumbers,
                            nodeCoordinates,branchNodeElements,terminalArteryNames,RCRParameters)
 numberOfInputNodes     = len(inputNodeNumbers)
@@ -148,7 +157,13 @@ numberOfTerminalNodes  = len(coupledNodeNumbers)
 elementNodes = []
 elementArteryNames = []
 elementNodes.append([0,0,0])
-filename='input/Reymond2009_Elements.csv'
+if simpleTube:
+    if simpleBif:
+        filename='input/simpleBif/simpleBifElements.csv'
+    else:
+        filename='input/simpleTube/simpleElement.csv'
+else:
+    filename='input/Reymond2009_Elements.csv'
 Utilities1D.CsvElementReader2(filename,elementNodes,elementArteryNames)
 numberOfElements = len(elementNodes)-1
         
@@ -169,7 +184,7 @@ Rho  = 1050.0     # Density     (kg/m3)
 Mu   = 0.004      # Viscosity   (Pa.s)
 G0   = 0.0        # Gravitational acceleration (m/s2)
 #Pext = 0.0 #12932.2697 # External pressure (Pa)
-Alpha = 1.0       # Flow profile type
+Alpha = 4.0/3.0    # Flow profile type: 4/3 parabolic, 1 flat
 
 # Material parameter scaling factors
 Ls = 1000.0              # Length   (m -> mm)
@@ -189,7 +204,13 @@ A0   = []
 H    = []
 E    = []
 # Read the MATERIAL csv file
-filename = 'input/Reymond2009_Materials.csv'
+if simpleTube:
+    if simpleBif:
+        filename='input/simpleBif/simpleBifMaterials.csv'
+    else:
+        filename = 'input/simpleTube/simpleMaterial.csv'
+else:
+    filename = 'input/Reymond2009_Materials.csv'
 print('Reading materials from: '+filename)
 Utilities1D.CsvMaterialReader2(filename,A0,E,H)
 for i in range(len(A0[:])):
@@ -221,6 +242,7 @@ for i in range(len(A0[:])):
 pInit = 0.0 #0.0133322
 #pExternal = 0.0133322 # 100 mmHg
 pExternal = 70.0*0.000133322 # 80 mmHg
+#pExternal = 0.0
 
 #A = A0
 if initialiseFromFile:
@@ -235,7 +257,11 @@ elif abs(pInit) > 0.0001:
 
 # Apply scale factors        
 Rho = Rho*Rhos
-Mu  = Mu*Mus
+Mu = Mu*Mus
+print('density: '+str(Rho))
+print('viscosity: '+str(Mu))
+#!DEBUG
+#Mu  = Rho/(8.0*math.pi) # kappa = 1
 G0  = G0*Gs
 
 # Set the output parameters
@@ -247,10 +273,10 @@ linearSolverCharacteristicOutputType    = CMISS.SolverOutputTypes.NONE
 linearSolverNavierStokesOutputType     = CMISS.SolverOutputTypes.NONE
 # (NONE/TIMING/SOLVER/MATRIX)
 cmissSolverOutputType = CMISS.SolverOutputTypes.NONE
-dynamicSolverNavierStokesOutputFrequency = 10
+dynamicSolverNavierStokesOutputFrequency = 1
 
 # Set the time parameters
-numberOfPeriods = 10.0
+numberOfPeriods = 5.0
 timePeriod      = 790.
 timeIncrement   = 0.2
 startTime       = 0.0
@@ -258,16 +284,16 @@ stopTime  = numberOfPeriods*timePeriod + timeIncrement*0.01
 dynamicSolverNavierStokesTheta = [1.0]
 
 # Set the solver parameters
-relativeToleranceNonlinearNavierStokes   = 1.0E-05  # default: 1.0E-05
-absoluteToleranceNonlinearNavierStokes   = 1.0E-08  # default: 1.0E-10
-solutionToleranceNonlinearNavierStokes   = 1.0E-05  # default: 1.0E-05
-relativeToleranceLinearNavierStokes      = 1.0E-05  # default: 1.0E-05
-absoluteToleranceLinearNavierStokes      = 1.0E-08  # default: 1.0E-10
-relativeToleranceNonlinearCharacteristic = 1.0E-05  # default: 1.0E-05
-absoluteToleranceNonlinearCharacteristic = 1.0E-08  # default: 1.0E-10
-solutionToleranceNonlinearCharacteristic = 1.0E-05  # default: 1.0E-05
-relativeToleranceLinearCharacteristic    = 1.0E-05  # default: 1.0E-05
-absoluteToleranceLinearCharacteristic    = 1.0E-08  # default: 1.0E-10
+relativeToleranceNonlinearNavierStokes   = 1.0E-07  # default: 1.0E-05
+absoluteToleranceNonlinearNavierStokes   = 1.0E-10  # default: 1.0E-10
+solutionToleranceNonlinearNavierStokes   = 1.0E-07  # default: 1.0E-05
+relativeToleranceLinearNavierStokes      = 1.0E-07  # default: 1.0E-05
+absoluteToleranceLinearNavierStokes      = 1.0E-10  # default: 1.0E-10
+relativeToleranceNonlinearCharacteristic = 1.0E-07  # default: 1.0E-05
+absoluteToleranceNonlinearCharacteristic = 1.0E-10  # default: 1.0E-10
+solutionToleranceNonlinearCharacteristic = 1.0E-07  # default: 1.0E-05
+relativeToleranceLinearCharacteristic    = 1.0E-07  # default: 1.0E-05
+absoluteToleranceLinearCharacteristic    = 1.0E-10  # default: 1.0E-10
 
 DIVERGENCE_TOLERANCE = 1.0E+10  # default: 1.0E+05
 MAXIMUM_ITERATIONS   = 100000   # default: 100000
@@ -1092,7 +1118,12 @@ if RCRBoundaries:
     outputDirectory = "./output/Reymond2009ExpInputCellML/"
 elif nonReflecting:
 #    outputDirectory = "./output/" #"./output/Reymond2009ExpInputNonreflecting/"
-    outputDirectory = "./output/Reymond2009ExpInputNonreflecting_pExt70/"
+    if simpleTube:
+        outputDirectory = "./output/simple/"
+    elif reymondRefined:
+        outputDirectory = "./output/Reymond2009ExpInputNonreflecting_pExt70_refine_t2/"
+    else:
+        outputDirectory = "./output/Reymond2009ExpInputNonreflecting_pExt70_new_t05/"
 else:
     outputDirectory = "./output/"
 

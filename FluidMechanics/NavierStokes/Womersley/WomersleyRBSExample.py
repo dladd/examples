@@ -90,22 +90,24 @@ else:
 # Note scales are Length:cm, Time:s, Mass:kg
 # Problem parameters
 offset = 0.0
-density = 1.0
+#density = 1.0
+density = 1.0 #1.05e-3 # kg/cm^3
 amplitude = 1.0
 period = math.pi/2.
-timeIncrement = period/1000.0 #[period/400.] 10,25,50,200
+timeIncrement = period/10.0 #[period/400.] 10,25,50,200
 theta = 1.0
 womersleyNumber = 10.0
+#womersleyNumber = 5.477225575051661 # to get viscosity = 3.5e-5 kg/(cm.s)
 startTime = 0.0
-stopTime = 2.0*period + 0.00001 #period + 0.000001
-outputFrequency = 50
-initialiseAnalytic = True
+stopTime = 1.0*period + 0.00001 #period + 0.000001
+outputFrequency = 1
+initialiseAnalytic = False
 beta = 0.0
 
 # Mesh parameters
 quadraticMesh = True
 equalOrder = True
-meshName = 'hexCylinder13' # 140, 12
+meshName = 'hexCylinder140' # 140, 12
 inputDir = './input/' + meshName +'/'
 length = 10.0
 radius = 0.5
@@ -123,7 +125,7 @@ if quadraticMesh:
     meshType = 'Quadratic'
 else:
     meshType = 'Linear'
-outputDirectory = ("./output/Wom" + str(womersleyNumber) + 'Dt' + str(round(timeIncrement,5)) +
+outputDirectory = ("./output/Wom" + str(round(womersleyNumber,1)) + 'Dt' + str(round(timeIncrement,5)) +
                    '_'+ meshName + meshType + "_theta"+str(theta)+ '_Beta'+str(beta)+"/")
 try:
     os.makedirs(outputDirectory)
@@ -335,6 +337,9 @@ equationsSet.CreateStart(equationsSetUserNumber,region,geometricField,
         CMISS.EquationsSetSubtypes.TRANSIENT_RBS_NAVIER_STOKES,
         equationsSetFieldUserNumber, equationsSetField)
 equationsSet.CreateFinish()
+# Set boundary retrograde flow stabilisation scaling factor (default 0.0)
+equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U1,
+                                              CMISS.FieldParameterSetTypes.VALUES,1,beta)
 # Set max CFL number (default 1.0, choose 0 to skip)
 equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U1,
                                               CMISS.FieldParameterSetTypes.VALUES,2,0.0)
@@ -344,11 +349,6 @@ equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U1,
 # Set stabilisation type (default 1.0 = RBS)
 equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U1,
                                               CMISS.FieldParameterSetTypes.VALUES,4,1.0)
-
-# Set boundary retrograde flow stabilisation scaling factor (default 0.2)
-equationsSetField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,
-                                              CMISS.FieldParameterSetTypes.VALUES, 
-                                              1,beta)
 
 # Create dependent field
 dependentField = CMISS.Field()
@@ -369,6 +369,7 @@ for component in range(1,5):
     dependentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.DELUDELN,CMISS.FieldParameterSetTypes.VALUES,component,0.0)
 
 # Initialise dependent field to analytic values
+
 if initialiseAnalytic:
     phaseShift = math.pi/2.0
     for node in range(1,numberOfNodes+1):
@@ -399,7 +400,7 @@ if initialiseAnalytic:
             radialNodePosition=math.sqrt(sumPositionSq)
                     
             
-            velocityValue = womersleyAnalytic.womersleyAxialVelocity(startTime,offset,amplitude,radius,
+            velocityValue = -womersleyAnalytic.womersleyAxialVelocity(startTime,offset,amplitude,radius,
                                                                      radialNodePosition,period,viscosity,
                                                                      womersleyNumber,length)
             # Velocity value

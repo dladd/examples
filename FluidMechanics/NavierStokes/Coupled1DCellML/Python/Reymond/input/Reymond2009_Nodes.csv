@@ -14,9 +14,9 @@ Node	xCoord	yCoord	zCoord	branch element topology or R1,R2 (g/mm^4.ms), and C(mm
 13	59	-169	0	6	37	36		
 14	59	-199	0					
 15	59	-209	0	7	8	39		
-16	59	-244	0					
-17	59	-279	0	8	40	9		
-18	59	-307	0					
+16	59	-262	0					
+17	59	-315	0	8	40	9		
+18	59	-325	0					
 19	59	-335	0	9	41	48		
 20	0	57	0					
 21	0	74	0	10	18	11		
@@ -78,8 +78,8 @@ Node	xCoord	yCoord	zCoord	branch element topology or R1,R2 (g/mm^4.ms), and C(mm
 77	91	-189	0	terminal	left renal	0.000226	0.000904	164640
 78	43	-209	0					
 79	27	-209	0	terminal	right renal	0.000226	0.000904	164640
-80	84	-279	0					
-81	109	-279	0	terminal	inferior mesenteric	0.001376	0.005504	27041
+80	84	-315	0					
+81	109	-315	0	terminal	inferior mesenteric	0.001376	0.005504	27041
 82	88.5	-335	0					
 83	118	-335	0	41	42	47		
 84	190	-335	0					
