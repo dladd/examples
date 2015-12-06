@@ -111,7 +111,7 @@ quadraticMesh = True
 inputDir = "./input/"
 meshName = "hexCylinder140"
 analyticInflow = True
-inletValue = 0.001#1.0
+inletValue = 50.0#0.001#1.0
 inletCoeff = [0.0,1.0,0.0,0.0]
 
 #-------------------------------------------
