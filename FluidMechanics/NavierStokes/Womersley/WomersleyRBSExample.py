@@ -90,24 +90,22 @@ else:
 # Note scales are Length:cm, Time:s, Mass:kg
 # Problem parameters
 offset = 0.0
-#density = 1.0
-density = 1.0 #1.05e-3 # kg/cm^3
+density = 1.0
 amplitude = 1.0
 period = math.pi/2.
-timeIncrement = period/10.0 #[period/400.] 10,25,50,200
+timeIncrement = period/1000.0 #[period/400.] 10,25,50,200
 theta = 1.0
 womersleyNumber = 10.0
-#womersleyNumber = 5.477225575051661 # to get viscosity = 3.5e-5 kg/(cm.s)
 startTime = 0.0
 stopTime = 1.0*period + 0.00001 #period + 0.000001
-outputFrequency = 1
-initialiseAnalytic = False
+outputFrequency = 50
+initialiseAnalytic = True
 beta = 0.0
 
 # Mesh parameters
 quadraticMesh = True
 equalOrder = True
-meshName = 'hexCylinder140' # 140, 12
+meshName = 'hexCylinder13' # 140, 12
 inputDir = './input/' + meshName +'/'
 length = 10.0
 radius = 0.5
@@ -119,6 +117,7 @@ print('boundary stabilisation beta: ' + str(beta))
 angularFrequency = 2.0*math.pi/period
 viscosity = density*angularFrequency/((womersleyNumber/radius)**2.0)
 print('viscosity = '+str(viscosity))
+print('density = '+str(density))
 
 
 if quadraticMesh:
@@ -127,6 +126,8 @@ else:
     meshType = 'Linear'
 outputDirectory = ("./output/Wom" + str(round(womersleyNumber,1)) + 'Dt' + str(round(timeIncrement,5)) +
                    '_'+ meshName + meshType + "_theta"+str(theta)+ '_Beta'+str(beta)+"/")
+#DEBUG
+#outputDirectory = ('Wom0.1Dt0.03142_hexCylinder140Quadratic_theta1.0_Beta0.0/')
 try:
     os.makedirs(outputDirectory)
 except OSError, e:
@@ -400,7 +401,7 @@ if initialiseAnalytic:
             radialNodePosition=math.sqrt(sumPositionSq)
                     
             
-            velocityValue = -womersleyAnalytic.womersleyAxialVelocity(startTime,offset,amplitude,radius,
+            velocityValue = womersleyAnalytic.womersleyAxialVelocity(startTime,offset,amplitude,radius,
                                                                      radialNodePosition,period,viscosity,
                                                                      womersleyNumber,length)
             # Velocity value
@@ -421,7 +422,7 @@ materialsField = CMISS.Field()
 equationsSet.MaterialsCreateStart(materialsFieldUserNumber,materialsField)
 equationsSet.MaterialsCreateFinish()
 # Initialise materials field parameters
-materialsField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,1,viscosity)
+materialsField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,1,viscosity)#DEBUG
 materialsField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,2,density)
 
 # Create analytic field (allows for time-dependent calculation of sinusoidal pressure waveform during solve)
@@ -440,7 +441,7 @@ if analytic:
                 #pNorm = normalInlet[axialComponent]
             # elif nodeNumber in outletNodes:
             #     nodeAmplitude = 0.0
-            #     pNorm = 1.0
+            #     pNorm = 1.0        
             else:
                 nodeAmplitude = 0.0
                 pNorm = 0.0
@@ -509,7 +510,7 @@ equationsSetIndex = solverEquations.EquationsSetAdd(equationsSet)
 problem.SolverEquationsCreateFinish()
 
 # Define fixed pressure at a reference node
-referenceNode = 0 #outletNodes[0]
+referenceNode = outletNodes[0]
 # Create boundary conditions
 boundaryConditions = CMISS.BoundaryConditions()
 solverEquations.BoundaryConditionsCreateStart(boundaryConditions)
@@ -571,6 +572,7 @@ for nodeNumber in inletNodes:
     if (nodeNumber <= numberOfNodes): 
         nodeDomain=decomposition.NodeDomainGet(nodeNumber,meshComponent1)
         if (nodeDomain == computationalNodeNumber):
+            print('inlet node: ' + str(nodeNumber) + ' comp node: ' + str(computationalNodeNumber))
             if (nodeNumber == referenceNode):
                 value = 1.0
                 boundaryConditions.SetNode(dependentField,CMISS.FieldVariableTypes.U,

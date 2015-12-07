@@ -113,13 +113,13 @@ computationalNodeNumber    = CMISS.ComputationalNodeNumberGet()
 
 # Set the flags
 RCRBoundaries            = False   # Set to use coupled 0D Windkessel models (from CellML) at model outlet boundaries
-nonReflecting            = True    # Set to use non-reflecting outlet boundaries
+nonReflecting            = False    # Set to use non-reflecting outlet boundaries
 CheckTimestepStability   = False   # Set to do a basic check of the stability of the hyperbolic problem based on the timestep size
 initialiseFromFile       = False   # Set to initialise values
 ProgressDiagnostics      = True   # Set to diagnostics
-simpleTube               = False   # Set to solve over a simple 1d tube 
+simpleTube               = True   # Set to solve over a simple 1d tube 
 simpleBif                = False   # Set to solve over a simple 1d tube 
-reymondRefined                = True   # Set to solve over a simple 1d tube 
+reymondRefined           = False   # Set to solve over a simple 1d tube 
 
 if(nonReflecting and RCRBoundaries):
     sys.exit('Please set either RCR or non-reflecting boundaries- not both.')
@@ -146,7 +146,12 @@ if simpleTube:
         filename='input/simpleTube/simpleNode.csv'
 else:
     filename='input/Reymond2009_Nodes.csv'
-Utilities1D.CsvNodeReader2(filename,inputNodeNumbers,branchNodeNumbers,coupledNodeNumbers,
+if reymondRefined:
+    filename='input/reymondRefined/Node.csv'
+    Utilities1D.CsvNodeReader(filename,inputNodeNumbers,branchNodeNumbers,coupledNodeNumbers,
+                           nodeCoordinates,branchNodeElements,terminalArteryNames,RCRParameters)
+else:
+    Utilities1D.CsvNodeReader2(filename,inputNodeNumbers,branchNodeNumbers,coupledNodeNumbers,
                            nodeCoordinates,branchNodeElements,terminalArteryNames,RCRParameters)
 numberOfInputNodes     = len(inputNodeNumbers)
 numberOfNodes          = len(nodeCoordinates)
@@ -211,8 +216,13 @@ if simpleTube:
         filename = 'input/simpleTube/simpleMaterial.csv'
 else:
     filename = 'input/Reymond2009_Materials.csv'
-print('Reading materials from: '+filename)
-Utilities1D.CsvMaterialReader2(filename,A0,E,H)
+if reymondRefined:
+    filename='input/reymondRefined/Materials.csv'
+    print('Reading materials from: '+filename)
+    Utilities1D.CsvMaterialReader(filename,A0,E,H)
+else:
+    print('Reading materials from: '+filename)
+    Utilities1D.CsvMaterialReader2(filename,A0,E,H)
 for i in range(len(A0[:])):
     for j in range(len(A0[i][:])):
         A0[i][j] = A0[i][j]*As
@@ -1119,13 +1129,19 @@ if RCRBoundaries:
 elif nonReflecting:
 #    outputDirectory = "./output/" #"./output/Reymond2009ExpInputNonreflecting/"
     if simpleTube:
-        outputDirectory = "./output/simple/"
+        if nonReflecting:
+            outputDirectory = "./output/simple_nonRef/"
+        else:
+            outputDirectory = "./output/simple/"
     elif reymondRefined:
         outputDirectory = "./output/Reymond2009ExpInputNonreflecting_pExt70_refine_t2/"
     else:
         outputDirectory = "./output/Reymond2009ExpInputNonreflecting_pExt70_new_t05/"
 else:
-    outputDirectory = "./output/"
+    if simpleTube:
+        outputDirectory = "./output/simple_fixed/"
+    else:
+        outputDirectory = "./output/"
 
 # Create a results directory if needed
 try:

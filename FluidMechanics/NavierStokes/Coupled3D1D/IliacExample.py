@@ -113,7 +113,8 @@ inputDir = "./input/iliac3D/540Elem/normal/"
 meshName = "iliac540"
 outletArteries = ['LIA','RIA']
 analyticInflow = True
-inletValue = 1000.0#0.001#1.0
+#inletValue = 1000.0#0.001#1.0
+inletValue = 0.5
 normalInlet3D = numpy.zeros((3))
 normalOutlets3D = numpy.zeros((2,3))
 normalInlet3D = [-0.0438947,-0.999036,-6.80781e-6]
@@ -260,7 +261,8 @@ for outletArtery in outletArteries:
             f.close()
     except IOError:
        print ('Could not open Outlet boundary element file: ' + filename)
-
+print(outletNodes3D)
+print(outletElements3D)
 
 # -----------------------------------------------
 #  Set up Fields and equations
@@ -502,7 +504,7 @@ equationsSetField3D.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U1,
                                                 CMISS.FieldParameterSetTypes.VALUES,1,0.0)
 # Set max CFL number (default 1.0)
 equationsSetField3D.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U1,
-                                                CMISS.FieldParameterSetTypes.VALUES,2,1.0E20)
+                                                CMISS.FieldParameterSetTypes.VALUES,2,0.0)
 # Set time increment (default 0.0)
 equationsSetField3D.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U1,
                                                 CMISS.FieldParameterSetTypes.VALUES,3,timeIncrement)
@@ -971,10 +973,12 @@ for branch in range(2):
                                          1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
                                          nodeNumber,4,CMISS.BoundaryConditionsTypes.COUPLING_STRESS,value)
     # Outlet boundary elements
+    print('outlet branch: ' + str(branch))
     for elementNumber in outletElements3D[branch]:
         elementDomain=decomposition3D.ElementDomainGet(elementNumber)
         if (elementDomain == computationalNodeNumber):
             boundaryID = 3.0 + float(branch)
+            print('   element ' + str(elementNumber))
             # Boundary ID: used to identify common faces for flowrate calculation
             equationsSetField3D.ParameterSetUpdateElementDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,
                                                             elementNumber,8,boundaryID)

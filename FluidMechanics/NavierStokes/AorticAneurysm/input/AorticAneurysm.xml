@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Fieldml version="0.5"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:xlink="http://www.w3.org/1999/xlink"
+  xsi:noNamespaceSchemaLocation="http://www.fieldml.org/resources/xml/0.5/FieldML_0.5.xsd">
+ <Region name="AorticAneurysm">
+
+  <Import xlink:href="http://www.fieldml.org/resources/xml/0.5/FieldML_Library_0.5.xml" region="library">
+    <ImportType localName="real.type" remoteName="real.1d"/>
+    <ImportType localName="trilinear.parameters.type" remoteName="parameters.3d.unit.trilinearSimplex"/>
+    <ImportType localName="rc3.ensemble" remoteName="coordinates.rc.3d.component"/>
+    <ImportType localName="rc3.type" remoteName="coordinates.rc.3d"/>
+
+    <ImportEvaluator localName="trilinear.node.argument" remoteName="localNodes.3d.tetrahedron4.argument"/>
+    <ImportEvaluator localName="trilinear.parameters.argument" remoteName="parameters.3d.unit.trilinearSimplex.argument"/>
+    <ImportEvaluator localName="trilinear.interpolator" remoteName="interpolator.3d.unit.trilinearSimplex"/>
+
+    <ImportEvaluator localName="chart.argument" remoteName="chart.3d.argument"/>
+    <ImportEvaluator localName="rc3.component.argument" remoteName="coordinates.rc.3d.component.argument"/>
+    <ImportEvaluator localName="shape.unit.tetrahedron" remoteName="shape.unit.tetrahedron"/>
+  </Import>
+
+  <EnsembleType name="ArteryMesh.nodes">
+   <Members>
+    <MemberRange min="1" max="19066" />
+   </Members>
+  </EnsembleType>
+
+  <ArgumentEvaluator name="ArteryMesh.nodes.argument" valueType="ArteryMesh.nodes" />
+
+  <MeshType name="ArteryMesh.mesh">
+    <Elements name="element">
+     <Members>
+       <MemberRange min="1" max="109135"/>
+     </Members>
+    </Elements>
+    <Chart name="xi">
+      <Components name="xi" count="3"/>
+    </Chart>
+    <Shapes evaluator="shape.unit.tetrahedron" />
+  </MeshType>
+
+  <ArgumentEvaluator name="ArteryMesh.mesh.argument" valueType="ArteryMesh.mesh" />
+
+  <ArgumentEvaluator name="ArteryMesh.nodal_dofs" valueType="real.type" />
+
+  <DataResource name="ArteryMesh.node.coordinates.resource">
+    <DataResourceDescription>
+      <DataResourceHref xlink:href="AA_CFD5.C" format="PLAIN_TEXT"/>
+    </DataResourceDescription>
+    <ArrayDataSource name="ArteryMesh.node.coordinates.data" location="2" rank="2">
+      <RawArraySize>
+        19066 3
+      </RawArraySize>
+    </ArrayDataSource>
+  </DataResource>
+
+  <DataResource name="ArteryMesh.nodes.resource">
+    <DataResourceDescription>
+      <DataResourceHref xlink:href="AA_CFD5.M" format="PLAIN_TEXT"/>
+    </DataResourceDescription>
+    <ArrayDataSource name="ArteryMesh.tetrahedron4.nodes.data" location="2" rank="2">
+      <RawArraySize>
+        109135 4
+      </RawArraySize>
+    </ArrayDataSource>
+  </DataResource>
+
+<!-- Mesh connectivity parameter evaluators -->
+
+  <ParameterEvaluator name="ArteryMesh.tetrahedron4_nodes" valueType="ArteryMesh.nodes">
+   <DenseArrayData data="ArteryMesh.tetrahedron4.nodes.data">
+    <DenseIndexes>
+     <IndexEvaluator evaluator="trilinear.node.argument" />
+     <IndexEvaluator evaluator="ArteryMesh.mesh.argument.element" />
+    </DenseIndexes>
+   </DenseArrayData>
+  </ParameterEvaluator>
+
+  <AggregateEvaluator name="ArteryMesh.element_params.trilinear_simplex" valueType="trilinear.parameters.type">
+   <Bindings>
+    <BindIndex argument="trilinear.node.argument" indexNumber="1" />
+    <Bind argument="ArteryMesh.nodes.argument" source="ArteryMesh.tetrahedron4_nodes" />
+   </Bindings>
+   <ComponentEvaluators default="ArteryMesh.nodal_dofs" />
+  </AggregateEvaluator>
+
+  <ReferenceEvaluator name="ArteryMesh.trilinear_simplex" evaluator="trilinear.interpolator" valueType="real.type">
+   <Bindings>
+    <Bind argument="chart.argument" source="ArteryMesh.mesh.argument.xi" />
+    <Bind argument="trilinear.parameters.argument" source="ArteryMesh.element_params.trilinear_simplex" />
+   </Bindings>
+  </ReferenceEvaluator>
+
+  <PiecewiseEvaluator name="ArteryMesh.template.trilinear" valueType="real.type">
+   <IndexEvaluators>
+    <IndexEvaluator evaluator="ArteryMesh.mesh.argument.element" indexNumber="1" />
+   </IndexEvaluators>
+   <EvaluatorMap default="ArteryMesh.trilinear_simplex" />
+  </PiecewiseEvaluator>
+
+  <ParameterEvaluator name="ArteryMesh.node.coordinates" valueType="real.type">
+   <DenseArrayData data="ArteryMesh.node.coordinates.data">
+    <DenseIndexes>
+     <IndexEvaluator evaluator="rc3.component.argument" />
+     <IndexEvaluator evaluator="ArteryMesh.nodes.argument" />
+    </DenseIndexes>
+   </DenseArrayData>
+  </ParameterEvaluator>
+  
+  <AggregateEvaluator name="ArteryMesh.coordinates" valueType="rc3.type">
+   <Bindings>
+    <Bind argument="ArteryMesh.nodal_dofs" source="ArteryMesh.node.coordinates" />
+   </Bindings>
+   <ComponentEvaluators default="ArteryMesh.template.trilinear" />
+  </AggregateEvaluator>
+
+
+ </Region>
+</Fieldml>

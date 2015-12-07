@@ -65,20 +65,19 @@ matplotlib.rc('lines', linewidth=2, color='r')
 #=================================================================
 # C o n t r o l   P a n e l
 #=================================================================
-numberOfProcessors = 8
-woNums = ['0.1']
-#meshName = 'hexCylinder140'
+numberOfProcessors = 12
+woNums = ['10.0']
+meshName = 'hexCylinder140'
 meshName = 'hexCylinder13'
 axialComponent = 1
-#meshLabel = 'Coarse mesh'
-meshLabel = 'Fine mesh'
+meshLabel = 'Coarse mesh'
+#meshLabel = 'Fine mesh'
 meshType = 'Quadratic'
 thetas = ['1.0']
 #thetas = ['1.0']
 lineColours = ['r-','b-','g-','y-','c-','m-','r-','b-','g-','y-','c-','m-']
 dotColours = ['ro','bo','go','yo','co','mo','ro','bo','go','yo','co','mo']
 dependentFieldNumber = 2
-
 pOffset = 0.0
 amplitude = 1.0
 radius = 0.5
@@ -87,16 +86,18 @@ period = math.pi/2.
 density = 1.0
 cmfeStartTime = 0.0
 cmfeStopTime = 1.0*period + 0.0000001
+cmfeTimeIncrements = [period/400.]
+cmfeOutputFrequencies = [20]
+
 #cmfeTimeIncrements = [period/10.]
 #cmfeTimeIncrements = [period/10.,period/25.,period/50,period/200.]#,period/1000.]
-cmfeTimeIncrements = [period/10.]
-cmfeOutputFrequencies = [1]
+
 beta = '0.0'
 #cmfeOutputFrequencies = [2,5,10,40]#,200]
 #cmfeTimeIncrements = [period/10.,period/25.]
 #cmfeOutputFrequencies = [2]
 path = "./output/"
-#path = "/media/F0F095D5F095A300/opencmissStorage/Womersley/hexCylinder13/"
+#path = "/media/F0F095D5F095A300/opencmissStorage/Womersley/hexCylinder13/new_6_12/"
 #vtuMesh = "/hpc/dlad004/opencmiss/examples/FluidMechanics/NavierStokes/Womersley/input/pyformexMesh/hexCylinder12QuadDef.vtu"
 #vtuMesh = "/hpc/dlad004/opencmiss/examples/FluidMechanics/NavierStokes/Womersley/input/hexCylinder140/hex140.vtk"
 nodeFile = "./input/" + meshName + "/" + meshName + ".C"
@@ -278,17 +279,26 @@ try:
 except IOError:
    print ('Could not open center node file: ' + filename)
 
+print(meshName)
 if readDataFromExnode:
     field = fieldInfo()
+    filename = (path + 'Wom' + woNums[0] + 'Dt' + str(round(cmfeTimeIncrements[0],5)) +  '_' +
+#                meshName + meshType+'_theta'+thetas[0]+'_Beta'+beta+'_temp/TimeStep_0.part0.exnode')
+                meshName + meshType+'_theta'+thetas[0]+'_Beta'+beta+'/TimeStep_0.part0.exnode')
     #filename = path + 'Wom' + woNums[0] + 'Dt' + str(round(cmfeTimeIncrements[0],5)) + meshName + '/TIME_STEP_0000.part0.exnode'
-    if meshName != 'hexCylinder140':
-        filename = (path + 'Wom' + woNums[0] + 'Dt' + str(round(cmfeTimeIncrements[0],5)) +  '_' +
-                    meshName + meshType+'_theta'+thetas[0]+'_Beta'+beta+
-                    '/TimeStep_0.part0.exnode')
-    else:
-        filename = (path + 'Wom' + woNums[0] + 'Dt' + str(round(cmfeTimeIncrements[0],5)) +  '_' +
-                    meshName + meshType+'_theta'+thetas[0]+
-                    '/TimeStep_0.part0.exnode')
+    # if meshName != 'hexCylinder141':
+    #     filename = (path + 'Wom' + woNums[0] + 'Dt' + str(round(cmfeTimeIncrements[0],5)) +  '_' +
+    #                 meshName + meshType+'_theta'+thetas[0]+
+    #                 '/TimeStep_0.part0.exnode')
+    # if meshName != 'hexCylinder141':
+    #     filename = (path + 'Wom' + woNums[0] + 'Dt' + str(round(cmfeTimeIncrements[0],5)) +  '_' +
+    #                 meshName + meshType+'_theta'+thetas[0]+'_Beta'+beta+
+    #                 '/TimeStep_0.part0.exnode')
+    # if meshName == 'hexCylinder12':
+    #     filename = (path + 'Wom' + woNums[0] + 'Dt' + str(cmfeTimeIncrements[0]) +  '_' +
+    #                 meshName + meshType+'_theta'+thetas[0]+'_Beta'+beta+
+    #                 '/TimeStep_0.part0.exnode')
+
     print(filename)
     try:
         with open(filename):
@@ -321,14 +331,18 @@ if readDataFromExnode:
             for timestep in range(numberOfTimesteps[t]):
                 print('Reading data for timestep: ' + str(timestep*cmfeOutputFrequencies[t]))  
                 for proc in range(numberOfProcessors):
-                    if meshName != 'hexCylinder140':
-                        filename = (path + 'Wom' + woNums[0] + 'Dt' + str(round(cmfeTimeIncrements[0],5)) +  '_' +
-                                    meshName + meshType+'_theta'+thetas[0]+'_Beta'+beta+
-                                    '/TimeStep_' + str(timestep*cmfeOutputFrequencies[t]) + '.part' + str(proc) +'.exnode')
-                    else:
-                        filename = (path + 'Wom' + woNums[0] + 'Dt' + str(round(cmfeTimeIncrements[0],5)) +  '_' +
-                                    meshName + meshType+'_theta'+thetas[0]+
-                                    '/TimeStep_' + str(timestep*cmfeOutputFrequencies[t]) + '.part' + str(proc) +'.exnode')
+                    filename = (path + 'Wom' + woNums[0] + 'Dt' + str(round(cmfeTimeIncrements[0],5)) +  '_' +
+                                meshName + meshType+'_theta'+thetas[0]+'_Beta'+beta+
+#                                meshName + meshType+'_theta'+thetas[0]+'_Beta'+beta+'_temp'+
+                                '/TimeStep_' + str(timestep*cmfeOutputFrequencies[t]) + '.part' + str(proc) +'.exnode')
+                    # if meshName != 'hexCylinder141':
+                    #     filename = (path + 'Wom' + woNums[0] + 'Dt' + str(round(cmfeTimeIncrements[0],5)) +  '_' +
+                    #                 meshName + meshType+'_theta'+thetas[0]+'_Beta'+beta+
+                    #                 '/TimeStep_' + str(timestep*cmfeOutputFrequencies[t]) + '.part' + str(proc) +'.exnode')
+                    # else:
+                    #     filename = (path + 'Wom' + woNums[0] + 'Dt' + str(round(cmfeTimeIncrements[0],5)) +  '_' +
+                    #                 meshName + meshType+'_theta'+thetas[0]+
+                    #                 '/TimeStep_' + str(timestep*cmfeOutputFrequencies[t]) + '.part' + str(proc) +'.exnode')
                     print(filename)
                     importNodeData = numpy.zeros([totalNumberOfNodes,field.numberOfFields,max(field.numberOfFieldComponents)])
                     readExnodeFile(filename,field,importNodeData,totalNumberOfNodes)
@@ -423,23 +437,27 @@ timesteps = [0,1,2]
 w=0
 t = 0
 if plotTime:    
+    nAnaPoints = 1000
     x = numpy.zeros((len(centerLineNodes)))
-    analytic = -numpy.zeros((len(centerLineNodes)))
+    #analytic = numpy.zeros((len(centerLineNodes)))
+    analytic = numpy.zeros((nAnaPoints+1))
     numeric = numpy.zeros((len(centerLineNodes)))
     poiseuille = numpy.zeros((len(centerLineNodes)))
-    a = numpy.zeros((len(centerLineNodes),2))
+    #a = numpy.zeros((len(centerLineNodes),2))
+    a = numpy.zeros((nAnaPoints+1,2))
     n = numpy.zeros((len(centerLineNodes),2))
     p = numpy.zeros((len(centerLineNodes),2))
-    aSort = numpy.zeros((len(centerLineNodes),2))
+    #aSort = numpy.zeros((len(centerLineNodes),2))
+    aSort = numpy.zeros((nAnaPoints+1,2))
     nSort = numpy.zeros((len(centerLineNodes),2))
     pSort = numpy.zeros((len(centerLineNodes),2))
     fig = plt.figure()
-    print(nodeData.shape)
+    #print(nodeData.shape)
     tIndex = 0
     for timestep in timesteps:
         i = 0
         for node in centerLineNodes:
-            print(node)
+            #print(node)
             x[i] = nodeData[w,t,timestep,node,0,0]
             analytic[i] = analyticData[w,t,timestep,node]
             numeric[i] = nodeData[w,t,timestep,node,dependentFieldNumber,1]
@@ -452,18 +470,32 @@ if plotTime:
             p[i,1] = poiseuille[i]
             i += 1
 
+        xOrigLoc = -0.5
+        for i in range(nAnaPoints+1):
+            xLoc = xOrigLoc + i*2.0*radius/nAnaPoints
+            radialLocation = abs(xLoc)
+            #print(radialLocation)
+            analytic[i] = womersleyAnalytic.womersleyAxialVelocity(timestep*cmfeTimeIncrement*cmfeOutputFrequencies[0],
+                                                                   pOffset,amplitude,radius,radialLocation,period,
+                                                                   viscosity,float(wo),length)            
+            a[i,0] = xLoc
+            a[i,1] = analytic[i]
+
         aSort = a[a[:,0].argsort()]
         nSort = n[n[:,0].argsort()]
         pSort = p[p[:,0].argsort()]
 
-        x = aSort[:,0]
+        x1 = aSort[:,0]
+        x2 = nSort[:,0]
         analytic = aSort[:,1]
         numeric = nSort[:,1]
         poiseuille = pSort[:,1]
-        print(numeric)
-        print(analytic)
+        #print(numeric)
+        #print(analytic)
 
-        ana, num = plt.plot(x,analytic,lineColours[tIndex],x, numeric,dotColours[tIndex])
+        ana, num = plt.plot(x1,analytic,lineColours[tIndex],x2, numeric,dotColours[tIndex])
+        #ana = plt.plot(a[:,0],a[:,1],lineColours[tIndex])
+        #num = plt.plot(x2, numeric,dotColours[tIndex])
         tIndex+=1
 
     fig.legend((ana,  num), ('analytic', 'numeric'), 'upper right')
@@ -600,8 +632,8 @@ if plot3D:
             t += 1
         w += 1
 
-analyseResults = True
-onlyCenterFace = True
+analyseResults = False
+onlyCenterFace = False
 m = 0
 if analyseResults:
     #Check l2 norm of errors against analytic values

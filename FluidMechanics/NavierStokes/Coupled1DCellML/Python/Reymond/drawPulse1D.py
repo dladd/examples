@@ -223,21 +223,22 @@ def plotQP (Q,P,realTime,i,arteryNames,startTime,stopTime,writeFigs,writeFigs2,w
 #=================================================================
 # C o n t r o l   P a n e l
 #=================================================================
-timeIncrement = 0.05
+timeIncrement = 0.2
 outputFrequency = 1
 numberOfCycles = 5.0
 totalNumberOfNodes = 11#1
-#paths = ['./output/Reymond2009ExpInputNonreflecting_pExt70_new/']
+paths = ['./output/Reymond2009ExpInputNonreflecting_pExt70_new/']
+#paths = ['./output/Reymond2009ExpInputNonreflecting_pExt70/']
 #paths = ['./output/Reymond2009ExpInputNonreflecting_new/']
-paths = ['./output/simple/']
+#paths = ['./output/simple/']
 # Check conservation of mass between inlet and sum of outlets
 checkBranchFlow = True
 #inlets = [18]
 #outlets = [96,82]
 #boundaries = [18,96,82]
 inlets = [1]
-outlets = [11]
-#outlets = [27, 31, 33, 35, 39, 43, 45, 51, 55, 57, 59, 61, 65, 67, 69, 73, 77, 79, 81, 89, 91, 93, 95, 103, 105, 107, 109, 111] 
+#outlets = [11]
+outlets = [27, 31, 33, 35, 39, 43, 45, 51, 55, 57, 59, 61, 65, 67, 69, 73, 77, 79, 81, 89, 91, 93, 95, 103, 105, 107, 109, 111] 
 #outlets = [17, 33, 37, 45, 49, 57, 61, 71, 85, 89, 105, 107, 113, 115, 117, 125, 131, 145, 153, 157, 161, 167, 181, 189, 193, 195, 197] 
 #outlets = [25,37,45,47,59,61,77,79,95,105,115,125,131,135]
 
