@@ -100,7 +100,7 @@ CMISS.OutputSetOn(logfile)
 density  = 1050.0     # Density     (kg/m3)
 viscosity= 0.0035      # Viscosity   (Pa.s)
 startTime = 0.0
-stopTime = 0.0800001 
+stopTime = 0.0100001 
 timeIncrement = 0.01
 
 # Boundary Type selection:
@@ -140,7 +140,8 @@ meshName = 'AorticAneurysm'
 inputDir = './input/'
 
 # PCV Data
-fitData = True
+fitData = False
+solveNSE = True
 pcvDataDir = inputDir + 'pcvData/'
 pcvTimeIncrement = 40.0
 velocityScaleFactor = 1.0/Ts # mm/s to mm/ms
@@ -831,14 +832,30 @@ if fitData:
 
 # Let all computational nodes catch up here:
 #MPI.COMM_WORLD.Barrier()
+if initialiseVelocity and not fitData:
+    filename = interpolatedDir + "fitData0.dat"
+    velocityNodes = numpy.loadtxt(filename)
+    for node in range(1,numberOfNodes+1):
+        nodeNumber = nodes.UserNumberGet(node)
+        nodeDomain=decomposition.NodeDomainGet(nodeNumber,meshComponent1)
+        if (nodeDomain == computationalNodeNumber):
+            if nodeNumber not in wallNodes:
+                for component in xrange(numberOfDimensions):
+                    componentId = component + 1
+                    value = velocityNodes[nodeNumber-1,component]
+                    dependentField.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,
+                                                            CMISS.FieldParameterSetTypes.VALUES,
+                                                            1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
+                                                            nodeNumber,componentId,value)
 
-# Solve the problem
-print("solving problem...")
-preSolveTime = time.time()
-# change to new directory and solve problem (note will return to original directory on exit)
-with ChangeDirectory(outputDirectory):
-    problem.Solve()
-print("CFD problem successfully solved. Time to solve (seconds): " + str(time.time()-preSolveTime))    
+if solveNSE:
+    # Solve the problem
+    print("solving problem...")
+    preSolveTime = time.time()
+    # change to new directory and solve problem (note will return to original directory on exit)
+    with ChangeDirectory(outputDirectory):
+        problem.Solve()
+    print("CFD problem successfully solved. Time to solve (seconds): " + str(time.time()-preSolveTime))    
 if fitData:
     print("time for idw solve: " + str(idwTime))
 CMISS.Finalise()

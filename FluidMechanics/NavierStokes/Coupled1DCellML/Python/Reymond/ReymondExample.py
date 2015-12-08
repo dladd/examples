@@ -112,12 +112,12 @@ computationalNodeNumber    = CMISS.ComputationalNodeNumberGet()
 #================================================================================================================================
 
 # Set the flags
-RCRBoundaries            = False   # Set to use coupled 0D Windkessel models (from CellML) at model outlet boundaries
+RCRBoundaries            = True   # Set to use coupled 0D Windkessel models (from CellML) at model outlet boundaries
 nonReflecting            = False    # Set to use non-reflecting outlet boundaries
 CheckTimestepStability   = False   # Set to do a basic check of the stability of the hyperbolic problem based on the timestep size
 initialiseFromFile       = False   # Set to initialise values
 ProgressDiagnostics      = True   # Set to diagnostics
-simpleTube               = True   # Set to solve over a simple 1d tube 
+simpleTube               = False   # Set to solve over a simple 1d tube 
 simpleBif                = False   # Set to solve over a simple 1d tube 
 reymondRefined           = False   # Set to solve over a simple 1d tube 
 
@@ -283,10 +283,10 @@ linearSolverCharacteristicOutputType    = CMISS.SolverOutputTypes.NONE
 linearSolverNavierStokesOutputType     = CMISS.SolverOutputTypes.NONE
 # (NONE/TIMING/SOLVER/MATRIX)
 cmissSolverOutputType = CMISS.SolverOutputTypes.NONE
-dynamicSolverNavierStokesOutputFrequency = 1
+dynamicSolverNavierStokesOutputFrequency = 10
 
 # Set the time parameters
-numberOfPeriods = 5.0
+numberOfPeriods = 3.0
 timePeriod      = 790.
 timeIncrement   = 0.2
 startTime       = 0.0
@@ -731,7 +731,7 @@ if (RCRBoundaries):
     #----------------------------------------------------------------------------------------------------------------------------
 
     # Create CellML models with specified RCR values
-    terminalPressure = 0.0#0.00133322 #pExternal #0.0 #0.00133322 # 0.0133 = 100 mmHg
+    terminalPressure = pExternal #0.0#0.00133322 #pExternal #0.0 #0.00133322 # 0.0133 = 100 mmHg
     modelDirectory = './input/CellMLModels/terminalArteryRCR/'
     Utilities1D.WriteCellMLRCRModels(terminalArteryNames,RCRParameters,terminalPressure,modelDirectory)    
 
@@ -1125,7 +1125,7 @@ if (CheckTimestepStability):
 #================================================================================================================================
 
 if RCRBoundaries:    
-    outputDirectory = "./output/Reymond2009ExpInputCellML/"
+    outputDirectory = "./output/Reymond2009ExpInputCellML_pExt70/"
 elif nonReflecting:
 #    outputDirectory = "./output/" #"./output/Reymond2009ExpInputNonreflecting/"
     if simpleTube:

@@ -65,18 +65,20 @@ matplotlib.rc('lines', linewidth=2, color='r')
 #=================================================================
 # C o n t r o l   P a n e l
 #=================================================================
-numberOfProcessors = 12
+numberOfProcessors = 8
 woNums = ['10.0']
 meshName = 'hexCylinder140'
 meshName = 'hexCylinder13'
 axialComponent = 1
-meshLabel = 'Coarse mesh'
-#meshLabel = 'Fine mesh'
+meshLabel = 'Coarse mesh (1335 nodes)'
+meshLabels = ['Coarse mesh (1335 nodes)','Fine mesh (26481 nodes)']
+meshLabel = 'Fine mesh (26481 nodes)'
 meshType = 'Quadratic'
 thetas = ['1.0']
 #thetas = ['1.0']
-lineColours = ['r-','b-','g-','y-','c-','m-','r-','b-','g-','y-','c-','m-']
-dotColours = ['ro','bo','go','yo','co','mo','ro','bo','go','yo','co','mo']
+lineColours = ['r-','b-','g-','c-','y-','m-','r-','b-','g-','y-','c-','m-']
+dotColours = ['ro','bo','go','co','yo','mo','ro','bo','go','yo','co','mo']
+dotLineColours = ['-ro','-bo','-go','-co','-yo','-mo','-ro','-bo','-go','-yo','-co','-mo']
 dependentFieldNumber = 2
 pOffset = 0.0
 amplitude = 1.0
@@ -86,11 +88,13 @@ period = math.pi/2.
 density = 1.0
 cmfeStartTime = 0.0
 cmfeStopTime = 1.0*period + 0.0000001
-cmfeTimeIncrements = [period/400.]
-cmfeOutputFrequencies = [20]
+#cmfeTimeIncrements = [period/1000.]
+#cmfeOutputFrequencies = [50]
 
-#cmfeTimeIncrements = [period/10.]
-#cmfeTimeIncrements = [period/10.,period/25.,period/50,period/200.]#,period/1000.]
+cmfeTimeIncrements = [period/10.]
+cmfeOutputFrequencies = [1]
+cmfeTimeIncrements = [period/10.,period/50.,period/100.,period/200.]#,period/400.]#,period/1000.]
+cmfeOutputFrequencies = [1,5,10,20,40]#,10,20]#,50]#,200]
 
 beta = '0.0'
 #cmfeOutputFrequencies = [2,5,10,40]#,200]
@@ -110,7 +114,7 @@ exportVelocity = False
 exportWSS = False
 
 outputFolder = '/hpc_atog/dlad004/thesis/Thesis/figures/cfd/'
-writeFigs = False
+writeFigs = True
 showFigs = True
 
 #=================================================================
@@ -331,7 +335,8 @@ if readDataFromExnode:
             for timestep in range(numberOfTimesteps[t]):
                 print('Reading data for timestep: ' + str(timestep*cmfeOutputFrequencies[t]))  
                 for proc in range(numberOfProcessors):
-                    filename = (path + 'Wom' + woNums[0] + 'Dt' + str(round(cmfeTimeIncrements[0],5)) +  '_' +
+#                    filename = (path + 'Wom' + woNums[0] + 'Dt' + str(round(cmfeTimeIncrements[0],5)) +  '_' +
+                    filename = (path + 'Wom' + woNums[0] + 'Dt' + str(round(cmfeTimeIncrements[t],5)) +  '_' +
                                 meshName + meshType+'_theta'+thetas[0]+'_Beta'+beta+
 #                                meshName + meshType+'_theta'+thetas[0]+'_Beta'+beta+'_temp'+
                                 '/TimeStep_' + str(timestep*cmfeOutputFrequencies[t]) + '.part' + str(proc) +'.exnode')
@@ -431,9 +436,15 @@ if exportWSS:
         os.system(command)
     
 
-plotTime = True
+plotTime = False
 #timesteps = [i for i in range(6)]
+#timesteps = [0,1,2]
 timesteps = [0,1,2]
+#plotInc = (numberOfTimesteps[0]-1)/4
+#timesteps = []
+#for i in range(1,5):
+#    step = i*plotInc
+#    timesteps.append(step)
 w=0
 t = 0
 if plotTime:    
@@ -498,7 +509,31 @@ if plotTime:
         #num = plt.plot(x2, numeric,dotColours[tIndex])
         tIndex+=1
 
-    fig.legend((ana,  num), ('analytic', 'numeric'), 'upper right')
+    lgd = plt.legend((ana,  num), ('analytic', 'numeric'), ncol=2,bbox_to_anchor=(0.5,-0.1), loc='upper center') #loc = (0.25, -0.15),
+    plt.xlabel('radial position (cm)')
+    plt.ylabel(r'axial velocity (cm s$^{-1}$)')
+    plt.title(meshLabel)
+
+    # pylab.annotate('', xy=(0,-0.03),  xycoords='data',
+    #                xytext=(1.0,-0.03), textcoords='data',
+    #                annotation_clip=False,
+    #                arrowprops=dict(arrowstyle="|-|",
+    #                                ec="k",
+    #                                shrinkA=0.01,
+    #                                shrinkB=0.01,
+    #                                mutation_scale=2.0
+    #                            )
+    # )
+    # pylab.text(-0.34,-0.02,r't = $\pi$')
+    # pylab.text(-0.34,-0.005,r't = $\pi$')
+    # pylab.text(-0.34,0.02,r't = $\pi$')
+    # pylab.text(-0.34,0.005,r't = $\pi$/2')
+    if writeFigs:
+        fname = outputFolder + meshName + meshType +'WomWaves.pdf'
+        fname = fname.replace(' ','')
+        print('writing to '+fname)
+        pylab.savefig(fname,format='pdf',bbox_extra_artists=(lgd,),dpi=300,bbox_inches='tight')
+
     plt.show()
     plt.clf()
 
@@ -632,17 +667,20 @@ if plot3D:
             t += 1
         w += 1
 
-analyseResults = False
-onlyCenterFace = False
+analyseResults = True
+onlyCenterFace = True
 m = 0
 if analyseResults:
     #Check l2 norm of errors against analytic values
     for wo in range(len(woNums)):
         t = 0
         plt.title(meshLabel+' RMSE Velocity')
+        #plt.title(meshLabels[wo]+' RMSE Velocity')
+        #plt.title('Errors ')
         plt.ylabel(r'Period mean RMSE (cm s$^{-1}$)')
         plt.xlabel(r'${\Delta t}$ (s)')
         thetaInc = -1
+#        for theta in thetas:
         for theta in thetas:
             thetaInc += 1
             t = -1
@@ -682,13 +720,14 @@ if analyseResults:
                 #print(cmfeTimeIncrement)
 
             # plot for this theta
-            plt.plot(timeIncrements,CycleRMSErrors,lineColours[thetaInc],label = (r'$\theta=$ '+str(theta)))
-        if m==0:
-            plt.legend(loc = (0.6, 0.25))
+            #plt.plot(timeIncrements,CycleRMSErrors,lineColours[thetaInc],label = (r'$\theta=$ '+str(theta)))
+            plt.plot(timeIncrements,CycleRMSErrors,dotLineColours[thetaInc],label = (meshLabel))
+        # if m==0:
+        #     plt.legend(loc = (0.6, 0.25))
         if writeFigs:
-            fname = outputFolder + meshName + meshType + '.pdf'
+            fname = outputFolder + meshName + meshType + 'CycleErrors.pdf'
             fname = fname.replace(' ','')
-            print(fname)
+            print('outputting to '+fname)
             pylab.savefig(fname,format='pdf',dpi=300,bbox_inches='tight')
         if showFigs:
             plt.show()

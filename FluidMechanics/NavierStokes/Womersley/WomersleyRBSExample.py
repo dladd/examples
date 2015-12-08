@@ -93,12 +93,12 @@ offset = 0.0
 density = 1.0
 amplitude = 1.0
 period = math.pi/2.
-timeIncrement = period/1000.0 #[period/400.] 10,25,50,200
+timeIncrement = period/10.0 #[period/400.] 10,25,50,200
 theta = 1.0
 womersleyNumber = 10.0
 startTime = 0.0
 stopTime = 1.0*period + 0.00001 #period + 0.000001
-outputFrequency = 50
+outputFrequency = 1
 initialiseAnalytic = True
 beta = 0.0
 

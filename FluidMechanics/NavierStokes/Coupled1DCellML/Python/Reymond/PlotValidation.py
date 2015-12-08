@@ -18,11 +18,11 @@ def Post(nodes,arteryLabels,outputDirs,pdfFile):
 
     # Set the time parameters
     cycleTime = 790.0
-    numberOfCycles = 5
+    numberOfCycles = 2
     startTime = 0.0
     solveTime      = cycleTime*numberOfCycles
     timeIncrement = 0.2
-    outputFrequency = 10.0
+    outputFrequency = 1.0
     
     #Choose type of plot(s)
     plotFlow = True
@@ -207,10 +207,12 @@ else:
     nodes = [100,102,104]#36,44,35]
     labels = ['femoral','anterior tibial','posterior tibial']
     outputDirs = ['output/Reymond2009ExpInputNonreflecting_new']#_pOutRCR100Hg',
+    outputDirs = ['output/Reymond2009ExpInputNonreflecting_new']#_pOutRCR100Hg',
 
 #    nodes = [1,64,81,87,106,35]#36,44,35]
-#    labels = ['Aortic root','Thoracic aorta','Abdominal aorta',
-#              'Left common iliac','Right femoral','Right radial pressure']
+    nodes = [1,10,16,82,100,30]#36,44,35]
+    labels = ['Aortic root','Thoracic aorta','Abdominal aorta',
+              'Left common iliac','Right femoral','Right radial pressure']
 
 #    nodes = [1,81,87,106]#36,44,35]
 #    labels = ['Aortic root','Abdominal aorta','Left common iliac','Right femoral']
@@ -218,7 +220,8 @@ else:
 #    labels = ['aortic root','thoracic aorta','abdominal aorta','left common iliac','right femoral']
               #,'Right common carotid',
 #              'Left internal carotid','Right vertebral']
-#    outputDirs = ['output/Reymond2009ExpInputCellML']#_pOutRCR100Hg',
+    outputDirs = ['output/Reymond2009ExpInputCellML']#_pOutRCR100Hg',
+    outputDirs = ['output/Reymond2009ExpInputCellML_pExt70']
                  # 'output/Reymond2009ExpInputNonreflecting']
 #    outputDirs = ['output/Reymond2009ExpInputNonreflecting_pExt70']#_pOutRCR100Hg',
 #    pdfFile = '/hpc/dlad004/thesis/Thesis/figures/cfd/55ArteryNonReflectingQP.pdf'
