@@ -1,0 +1,31 @@
+Node	xCoord	yCoord	zCoord	branch element topology or R1,R2 (g/mm^4.ms), and C(mm^4.ms^2/g) values 
+1	59	-335	0	inlet	left common iliac			
+2	59	-335	0	inlet	right common iliac			
+3	88.5	-335	0					
+4	118	-335	0	1	2	7		
+5	190	-335	0					
+6	262	-335	0	2	6	3		
+7	262	-556.5	0					
+8	262	-778	0	3	5	4		
+9	262	-949.5	0					
+10	262	-1121	0	terminal	left anterior tibial	0.001118	0.004472	33281
+11	422.5	-778	0					
+12	583	-778	0	terminal	left posterior tibial	0.000954	0.003816	39003
+13	325	-335	0					
+14	388	-335	0	terminal	left deep femoral	0.000954	0.003816	39003
+15	118	-360	0					
+16	118	-385	0	terminal	left inner iliac	0.0015872	0.0063488	23443
+17	29.5	-335	0					
+18	0	-335	0	8	14	9		
+19	-72	-335	0					
+20	-144	-335	0	9	10	13		
+21	-144	-556.5	0					
+22	-144	-778	0	10	11	12		
+23	-144	-949.5	0					
+24	-144	-1121	0	terminal	right anterior tibial	0.001118	0.004472	33281
+25	-304.5	-778	0					
+26	-465	-778	0	terminal	right posterior tibial	0.000954	0.003816	39003
+27	-207	-335	0					
+28	-270	-335	0	terminal	right deep femoral	0.000954	0.003816	39003
+29	0	-360	0					
+30	0	-385	0	terminal	right inner iliac	0.0015872	0.0063488	23443
