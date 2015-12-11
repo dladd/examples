@@ -106,7 +106,7 @@ Ms = 1000.0                # Mass      (kg -> g)
 # Set the time parameters
 numberOfPeriods = 0.1#4.0
 timePeriod      = 1020.0
-timeIncrement   = 0.05
+timeIncrement   = 0.5
 startTime       = 0.0
 stopTime  = numberOfPeriods*timePeriod + timeIncrement*0.01 
 outputFrequency = 1
