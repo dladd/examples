@@ -50,7 +50,7 @@ gfx def field /1D_LegArteries/firstTerm multiply_components fields sqA beta
 gfx def field /1D_LegArteries/pOfA1D add fields firstTerm secondTerm
 
 gfx mod g_e /3DIliac surfaces select_on material default data pressure3D spectrum default selected_material default_selected render_shaded;
-gfx modify g_element /1DIliac lines select_on material default data pressure1D spectrum default selected_material default_selected render_shaded;
+gfx modify g_element /1D_LegArteries lines select_on material default data pressure1D spectrum default selected_material default_selected;
 gfx modify g_element /3DIliac surfaces select_on material default data pressure3D spectrum default selected_material default_selected render_shaded;
 gfx modify spectrum default autorange;
 
