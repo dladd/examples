@@ -18,11 +18,11 @@ def Post(nodes,arteryLabels,outputDirs,pdfFile):
 
     # Set the time parameters
     cycleTime = 790.0
-    numberOfCycles = 2
+    numberOfCycles = 1
     startTime = 0.0
     solveTime      = cycleTime*numberOfCycles
     timeIncrement = 0.2
-    outputFrequency = 1.0
+    outputFrequency = 10.0
     
     #Choose type of plot(s)
     plotFlow = True
@@ -221,7 +221,7 @@ else:
               #,'Right common carotid',
 #              'Left internal carotid','Right vertebral']
     outputDirs = ['output/Reymond2009ExpInputCellML']#_pOutRCR100Hg',
-    outputDirs = ['output/Reymond2009ExpInputCellML_pExt70']
+    outputDirs = ['output/Reymond2009ExpInputCellML_pExt0']
                  # 'output/Reymond2009ExpInputNonreflecting']
 #    outputDirs = ['output/Reymond2009ExpInputNonreflecting_pExt70']#_pOutRCR100Hg',
 #    pdfFile = '/hpc/dlad004/thesis/Thesis/figures/cfd/55ArteryNonReflectingQP.pdf'

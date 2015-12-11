@@ -379,13 +379,13 @@ def LidDriven(numberOfElements,cavityDimensions,lidVelocity,viscosity,density,
 #==========================================================
 
 dimensions = [1.0,1.0]
-elementResolutions = [20]
+elementResolutions = [180]
 ReynoldsNumbers = [1000]
 lidVelocity = [1.0,0.0]
-density = 1.05e-3
+density = 1.0 #1.05e-3
 # Note: viscosity will be calculated based on specified Reynolds number
 RBSTypes = [True,False]
-timeIncrement = 0.1
+timeIncrement = 1.0
 stopTime = 300.001
 fdJacobian = False
 analyticLidVelocity = True
@@ -458,7 +458,7 @@ for elemRes in elementResolutions:
                 runInfo += '    output results to   : ' + outputFile + '\n'
                 runInfo += '    Runtime             : ' + str(runtime) + '\n'
                 print(runInfo)
-                f = open(outputDirectory+"RunInfo.txt","w")
+                f = open(outputDirectory+"RunInfo_N"+str(numberOfComputationalNodes)+".txt","w")
                 f.write(runInfo)
                 f.close() 
 

@@ -59,6 +59,11 @@ import re
 import math
 import contextlib
 import FluidExamples1DUtilities as Utilities1D
+import scipy
+import bisect
+from scipy import interpolate
+from numpy import linalg
+import fittingUtils as fit
 
 # Intialise OpenCMISS
 from opencmiss import CMISS
@@ -89,7 +94,7 @@ computationalNodeNumber = CMISS.ComputationalNodeNumberGet()
 #-------------------------------------------
 # Set the material parameters
 density  = 1050.0     # Density     (kg/m3)
-viscosity= 0.004      # Viscosity   (Pa.s)
+viscosity= 0.0035      # Viscosity   (Pa.s)
 G0   = 0.0            # Gravitational acceleration (m/s2)
 Pext = 0.0            # External pressure (Pa)
 
@@ -99,15 +104,40 @@ Ts = 1000.0                # Time      (s -> ms)
 Ms = 1000.0                # Mass      (kg -> g)
 
 # Set the time parameters
-numberOfPeriods = 1.0#4.0
-timePeriod      = .0#790.
-timeIncrement   = 0.
+numberOfPeriods = 0.1#4.0
+timePeriod      = 1020.0
+timeIncrement   = 0.05
 startTime       = 0.0
 stopTime  = numberOfPeriods*timePeriod + timeIncrement*0.01 
 outputFrequency = 1
 dynamicSolverNavierStokesTheta = [1.0]
-couplingTolerance3D1D = 1.0E-5
-couplingTolerance1D0D = 1.0E-5
+#couplingTolerance3D1D = 1.0E-4
+couplingTolerance1D0D = 1.0E-4
+flowTolerance3D1D = 1.0E-6
+stressTolerance3D1D = 1.0E-6
+relativeTolerance3D1D = 0.001
+
+#-------------------------------------------
+# Fit parameters
+#-------------------------------------------
+fitData = False
+initialiseVelocity = False
+pcvDataDir = './input/pcvData/'
+pcvTimeIncrement = 40.8
+velocityScaleFactor = 1.0/Ts
+numberOfPcvDataFiles = 25
+dataPointResolution = [2.08,2.08,2.29]
+startFit = 0
+addZeroLayer = False
+p = 2.5
+vicinityFactor = 1.1
+interpolatedDir = './output/interpolatedData/'
+try:
+    os.makedirs(interpolatedDir)
+except OSError, e:
+    if e.errno != 17:
+        raise   
+print('interpolated data output to : ' + interpolatedDir)
 
 #-------------------------------------------
 # 3D parameters
@@ -119,14 +149,15 @@ inputDir3D = "./input/iliac3D/540Elem/stenosis/"
 meshName = "iliac540"
 outletArteries = ['LIA','RIA']
 analyticInflow = True
-fitData = False
 #inletValue = 1000.0#0.001#1.0
 inletValue = 0.5
 normalInlet3D = numpy.zeros((3))
 normalOutlets3D = numpy.zeros((2,3))
 normalInlet3D = [-0.0438947,-0.999036,-6.80781e-6]
-normalOutlets3D[0,:] = [-0.267634, 0.963521, -5.91711e-7]
-normalOutlets3D[1,:] = [0.396259, 0.918139, -6.62205e-6]
+normalOutlets3D[0,:] = [-0.39840586,  0.89000103,  0.2217452]
+normalOutlets3D[1,:] = [.42891316,  0.8612245 ,  0.27262769]
+#normalOutlets3D[0,:] = [-0.267634, 0.963521, -5.91711e-7]
+#normalOutlets3D[1,:] = [0.396259, 0.918139, -6.62205e-6]
 #inletCoeff = [0.0,1.0,0.0,0.0]
 inletCoeff = [-normalInlet3D[0],-normalInlet3D[1],-normalInlet3D[2],0.0]
 
@@ -149,6 +180,14 @@ elementsLeft1D = range(1,8)
 elementsRight1D = range(8,15)
 elementsCouplingGroups1D = [elementsLeft1D,elementsRight1D]
 
+
+# make a new output directory if necessary
+outputDirectory = "./output/ReymondIliac_Dt" + str(round(timeIncrement,5)) + meshName + "/"
+try:
+    os.makedirs(outputDirectory)
+except OSError, e:
+    if e.errno != 17:
+        raise   
 
 #================================================================================================================================
 #  1 D  M e s h   
@@ -492,13 +531,27 @@ basis1D.CreateFinish()
 
 # Create nodes
 nodes1D = CMISS.Nodes()
-nodes1D.CreateStart(region1D,numberOfNodes1D)
+#nodes1D.CreateStart(region1D,numberOfNodes1D)
+# Note there is a hack here for setting up a dummy mesh so decomposition can have elements on 
+#  each MPI process
+if numberOfComputationalNodes > 1:
+    nodes1D.CreateStart(region1D,numberOfNodes1D+numberOfComputationalNodes*2+1)
+    print("Number of nodes 1D: "+str(numberOfNodes1D)+" + "+str(numberOfComputationalNodes*2+1)+" dummy nodes")
+else:
+    nodes1D.CreateStart(region1D,numberOfNodes1D)
+    print("Number of nodes 1D: "+str(numberOfNodes1D))
 nodes1D.CreateFinish()
 
 # Create mesh
 mesh1D = CMISS.Mesh()
 mesh1D.CreateStart(mesh1DUserNumber,region1D,numberOfDimensions)
-mesh1D.NumberOfElementsSet(numberOfElements1D)
+if numberOfComputationalNodes > 1:
+    mesh1D.NumberOfElementsSet(numberOfElements1D+numberOfComputationalNodes)
+    print("Number of elements 1D: "+str(numberOfElements1D)+" + "+ str(numberOfComputationalNodes) +" dummy elements")
+else:
+    mesh1D.NumberOfElementsSet(numberOfElements1D)
+    print("Number of elements 1D: "+str(numberOfElements1D))
+#mesh1D.NumberOfElementsSet(numberOfElements1D)
 # Specify the mesh components
 mesh1D.NumberOfComponentsSet(1)
 meshComponentNumber = 1
@@ -515,6 +568,17 @@ for nodeIdx in range(len(branchNodeNumbers1D)):
         else:
             meshElements1D.LocalElementNodeVersionSet(element,versionIdx,1,1)            
         versionIdx+=1
+# Set up dummy nodes
+if numberOfComputationalNodes > 1:
+    for cnode in range(numberOfComputationalNodes):
+        nodeIdx = numberOfNodes1D + 2*cnode + 1
+        elementNodes = []
+        for elementNode in range(3):
+            elementNodes.append(elementNode+nodeIdx)
+        dummyElement=numberOfElements1D+cnode+1
+        print("Dummy element "+ str(dummyElement)+ " dummy nodes: " + str(elementNodes))
+        meshElements1D.NodesSet(dummyElement,elementNodes)
+
 meshElements1D.CreateFinish()
 mesh1D.CreateFinish() 
 
@@ -528,11 +592,12 @@ for nodeNumber3D in couplingNodes3D:
     for element in elementsCouplingGroups1D[branch]:
         decomposition1D.ElementDomainSet(element,nodeDomain)
     branch+=1
-# # Dummy elements
-# if numberOfComputationalNodes > 1:
-#     for cnode in range(numberOfComputationalNodes):
-#         decomposition1D.ElementDomainSet(numberOfElements1D+cnode+1,cnode)
-#         print("Rank " + str(computationalNodeNumber) + " dummy element number " + str(numberOfElements1D+cnode+1)+" on "+str(cnode))
+# Dummy elements
+if numberOfComputationalNodes > 1:
+    for cnode in range(numberOfComputationalNodes):
+        decomposition1D.ElementDomainSet(numberOfElements1D+cnode+1,cnode)
+        print("Rank " + str(computationalNodeNumber) + " dummy element number " + str(numberOfElements1D+cnode+1)+" on "+str(cnode))
+
 decomposition1D.numberOfDomains = numberOfComputationalNodes
 decomposition1D.CreateFinish()
 
@@ -575,20 +640,20 @@ for node in range(numberOfNodes1D):
         #                                                       versionNumber,1,nodeNumber,componentNumber,
         #                                                       nodeCoordinates1D[node,version,component])
 
-# # Set dummy node positions
-# if numberOfComputationalNodes > 1:
-#     yLocation = 0.0
-#     lengthIncrement=(10.0*Ls)/(float(numberOfNodes1D)/2.-1.)
-#     A0_dummy = A0[0][0]
-#     E_dummy = E[0][0]
-#     H_dummy = H[0][0]
-#     for dummyNodeNumber in range(numberOfNodes1D+1,numberOfNodes1D+2+numberOfComputationalNodes*2):
-#         nodeDomain = decomposition1D.NodeDomainGet(dummyNodeNumber,meshComponentNumber)
-#         if (nodeDomain == computationalNodeNumber):
-#             value = dummyNodeNumber*lengthIncrement
-#             geometricField1D.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,
-#                                                       CMISS.FieldParameterSetTypes.VALUES,1,1,
-#                                                       dummyNodeNumber,1,value)                
+# Set dummy node positions
+if numberOfComputationalNodes > 1:
+    yLocation = 0.0
+    lengthIncrement=(10.0*Ls)/(float(numberOfNodes1D)/2.-1.)
+    A0_dummy = A0[0][0]
+    E_dummy = E[0][0]
+    H_dummy = H[0][0]
+    for dummyNodeNumber in range(numberOfNodes1D+1,numberOfNodes1D+2+numberOfComputationalNodes*2):
+        nodeDomain = decomposition1D.NodeDomainGet(dummyNodeNumber,meshComponentNumber)
+        if (nodeDomain == computationalNodeNumber):
+            value = dummyNodeNumber*lengthIncrement
+            geometricField1D.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,
+                                                      CMISS.FieldParameterSetTypes.VALUES,1,1,
+                                                      dummyNodeNumber,1,value)                
 
 # Finish the parameter update
 geometricField1D.ParameterSetUpdateStart(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES)
@@ -740,7 +805,26 @@ for nodeIdx in range (1,numberOfNodes1D+1):
             dependentField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.DELUDELN,CMISS.FieldParameterSetTypes.VALUES,
                                                         versionIdx,1,nodeIdx,2,dA[nodeIdx-1,versionIdx-1])
 
-# versionIdx = 1
+versionIdx = 1
+# Update dummy values
+if numberOfComputationalNodes > 1:
+    for nodeIdx in range (numberOfNodes1D+1,numberOfNodes1D+2+numberOfComputationalNodes*2):
+        nodeDomain = decomposition1D.NodeDomainGet(nodeIdx,meshComponentNumber)
+        if (nodeDomain == computationalNodeNumber):
+            dependentField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,
+                                                        versionIdx,1,nodeIdx,1,0.0)
+            dependentField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,
+                                                        versionIdx,1,nodeIdx,2,A0_dummy)
+            dependentField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.PREVIOUS_VALUES,
+                                                        versionIdx,1,nodeIdx,1,0.0)
+            dependentField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.PREVIOUS_VALUES,
+                                                        versionIdx,1,nodeIdx,2,A0_dummy)
+            # delUdelN variables
+            dependentField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.DELUDELN,CMISS.FieldParameterSetTypes.VALUES,
+                                                        versionIdx,1,nodeIdx,1,0.0)
+            dependentField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.DELUDELN,CMISS.FieldParameterSetTypes.VALUES,
+                                                        versionIdx,1,nodeIdx,2,0.0)
+
 # for nodeIdx in range (1,numberOfNodes1D+1):
 #     dependentField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,
 #                                                 versionIdx,1,nodeIdx,1,Q0)
@@ -758,6 +842,9 @@ for nodeIdx in range (1,numberOfNodes1D+1):
 # Finish the parameter update
 dependentField1DNS.ParameterSetUpdateStart(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES)
 dependentField1DNS.ParameterSetUpdateFinish(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES)   
+
+
+
 
 # ========================================================
 #  Materials Field
@@ -851,6 +938,18 @@ for node in range(numberOfNodes1D):
                                                         versionIdx,1,nodeIdx,2,E[node][versionIdx-1])
             materialsField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,
                                                         versionIdx,1,nodeIdx,3,H[node][versionIdx-1])
+# dummy materials values
+if numberOfComputationalNodes > 1:
+    versionIdx = 1
+    for nodeIdx in range (numberOfNodes1D+1,numberOfNodes1D+2+numberOfComputationalNodes*2):
+        nodeDomain = decomposition1D.NodeDomainGet(nodeIdx,meshComponentNumber)
+        if (nodeDomain == computationalNodeNumber):
+            materialsField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,
+                                                        versionIdx,1,nodeIdx,1,A0_dummy)
+            materialsField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,
+                                                        versionIdx,1,nodeIdx,2,E_dummy)
+            materialsField1DNS.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,
+                                                        versionIdx,1,nodeIdx,3,H_dummy)
 
 # Finish the parameter update
 materialsField1DNS.ParameterSetUpdateStart(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES)
@@ -859,6 +958,31 @@ materialsField1DNS.ParameterSetUpdateFinish(CMISS.FieldVariableTypes.V,CMISS.Fie
 # ========================================================
 #  Independent Field
 # ========================================================
+# -----------------------------------------------
+#  3D
+# -----------------------------------------------
+# Create independent field for Navier Stokes - will hold fitted values on the NSE side
+independentField3D = CMISS.Field()
+independentField3D.CreateStart(independentField3DUserNumber,region3D)
+independentField3D.LabelSet("Fitted data")
+independentField3D.TypeSet(CMISS.FieldTypes.GENERAL)
+independentField3D.MeshDecompositionSet(decomposition3D)
+independentField3D.GeometricFieldSet(geometricField3D)
+independentField3D.DependentTypeSet(CMISS.FieldDependentTypes.INDEPENDENT)
+independentField3D.NumberOfVariablesSet(1)
+# PCV values field
+independentField3D.VariableTypesSet([CMISS.FieldVariableTypes.U])
+independentField3D.DimensionSet(CMISS.FieldVariableTypes.U,CMISS.FieldDimensionTypes.VECTOR)
+independentField3D.NumberOfComponentsSet(CMISS.FieldVariableTypes.U,numberOfDimensions)
+independentField3D.VariableLabelSet(CMISS.FieldVariableTypes.U,"FittedData")
+for dimension in range(numberOfDimensions):
+    dimensionId = dimension + 1
+    independentField3D.ComponentMeshComponentSet(CMISS.FieldVariableTypes.U,dimensionId,1)
+independentField3D.CreateFinish()
+equationsSet3D.IndependentCreateStart(independentField3DUserNumber,independentField3D)
+equationsSet3D.IndependentCreateFinish()
+# Initialise data point vector field to 0
+independentField3D.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,1,0.0)
 
 # -----------------------------------------------
 #  1D
@@ -949,17 +1073,19 @@ if (RCRBoundaries):
     CellMLModelIndex = [0]*(numberOfTerminalNodes1D+1)
 
     # Windkessel Model
+    localmodels = 0
     for terminalIdx in range (1,numberOfTerminalNodes1D+1):
         nodeIdx = terminalNodeNumbers1D[terminalIdx-1]
         nodeDomain = decomposition1D.NodeDomainGet(nodeIdx,meshComponentNumber)
         modelFile = modelDirectory + terminalArteryNames1D[terminalIdx-1] + '.cellml'
         print('reading model: ' + modelFile)
-        if (nodeDomain == computationalNodeNumber):
-            CellMLModelIndex[terminalIdx] = CellML.ModelImport(modelFile)
-            # known (to OpenCMISS) variables
-            CellML.VariableSetAsKnown(CellMLModelIndex[terminalIdx],"Circuit/Qin")
-            # to get from the CellML side 
-            CellML.VariableSetAsWanted(CellMLModelIndex[terminalIdx],"Circuit/Pout")
+#        if (nodeDomain == computationalNodeNumber):
+        CellMLModelIndex[terminalIdx] = CellML.ModelImport(modelFile)
+        # known (to OpenCMISS) variables
+        CellML.VariableSetAsKnown(CellMLModelIndex[terminalIdx],"Circuit/Qin")
+        # to get from the CellML side 
+        CellML.VariableSetAsWanted(CellMLModelIndex[terminalIdx],"Circuit/Pout")
+
     CellML.CreateFinish()
 
     # Start the creation of CellML <--> OpenCMISS field maps
@@ -969,17 +1095,17 @@ if (RCRBoundaries):
     for terminalIdx in range (1,numberOfTerminalNodes1D+1):
         nodeIdx = terminalNodeNumbers1D[terminalIdx-1]
         nodeDomain = decomposition1D.NodeDomainGet(nodeIdx,meshComponentNumber)
-        if (nodeDomain == computationalNodeNumber):
-            # Now we can set up the field variable component <--> CellML model variable mappings.
-            # Map the OpenCMISS boundary flow rate values --> CellML
-            # Q is component 1 of the DependentField
-            CellML.CreateFieldToCellMLMap(dependentField1DNS,CMISS.FieldVariableTypes.U,1,
-                                          CMISS.FieldParameterSetTypes.VALUES,CellMLModelIndex[terminalIdx],
-                                          "Circuit/Qin",CMISS.FieldParameterSetTypes.VALUES)
-            # Map the returned pressure values from CellML --> CMISS
-            # pCellML is component 1 of the Dependent field U1 variable
-            CellML.CreateCellMLToFieldMap(CellMLModelIndex[terminalIdx],"Circuit/Pout",CMISS.FieldParameterSetTypes.VALUES,
-                                          dependentField1DNS,CMISS.FieldVariableTypes.U1,pCellMLComponent,CMISS.FieldParameterSetTypes.VALUES)
+#        if (nodeDomain == computationalNodeNumber):
+        # Now we can set up the field variable component <--> CellML model variable mappings.
+        # Map the OpenCMISS boundary flow rate values --> CellML
+        # Q is component 1 of the DependentField
+        CellML.CreateFieldToCellMLMap(dependentField1DNS,CMISS.FieldVariableTypes.U,1,
+                                      CMISS.FieldParameterSetTypes.VALUES,CellMLModelIndex[terminalIdx],
+                                      "Circuit/Qin",CMISS.FieldParameterSetTypes.VALUES)
+        # Map the returned pressure values from CellML --> CMISS
+        # pCellML is component 1 of the Dependent field U1 variable
+        CellML.CreateCellMLToFieldMap(CellMLModelIndex[terminalIdx],"Circuit/Pout",CMISS.FieldParameterSetTypes.VALUES,
+                                      dependentField1DNS,CMISS.FieldVariableTypes.U1,pCellMLComponent,CMISS.FieldParameterSetTypes.VALUES)
 
     # Finish the creation of CellML <--> OpenCMISS field maps
     CellML.FieldMapsCreateFinish()
@@ -1086,7 +1212,9 @@ timeLoop.TimeOutputSet(outputFrequency)
 # Create iterative 3D-1D coupling loop
 iterative3D1DLoop = CMISS.ControlLoop()
 problem.ControlLoopGet([1,CMISS.ControlLoopIdentifiers.NODE],iterative3D1DLoop)
-iterative3D1DLoop.AbsoluteToleranceSet(couplingTolerance3D1D)
+iterative3D1DLoop.AbsoluteToleranceSet(flowTolerance3D1D)
+iterative3D1DLoop.AbsoluteTolerance2Set(stressTolerance3D1D)
+iterative3D1DLoop.RelativeToleranceSet(relativeTolerance3D1D)
 
 # Set tolerances for iterative convergence loops
 if (RCRBoundaries):
@@ -1131,8 +1259,8 @@ nonlinearSolver1DC.NewtonJacobianCalculationTypeSet(CMISS.JacobianCalculationTyp
 nonlinearSolver1DC.OutputTypeSet(CMISS.SolverOutputTypes.NONE)
 # Set the solver settings
 nonlinearSolver1DC.newtonAbsoluteTolerance = 1.0E-8
-nonlinearSolver1DC.newtonSolutionTolerance = 1.0E-5
-nonlinearSolver1DC.newtonRelativeTolerance = 1.0E-5
+nonlinearSolver1DC.newtonSolutionTolerance = 1.0E-8
+nonlinearSolver1DC.newtonRelativeTolerance = 1.0E-8
 # Get the nonlinear linear solver
 linearSolver1DC = CMISS.Solver()
 nonlinearSolver1DC.NewtonLinearSolverGet(linearSolver1DC)
@@ -1141,7 +1269,7 @@ linearSolver1DC.OutputTypeSet(CMISS.SolverOutputTypes.NONE)
 linearSolver1DC.LinearTypeSet(CMISS.LinearSolverTypes.ITERATIVE)
 linearSolver1DC.LinearIterativeMaximumIterationsSet(100000)
 linearSolver1DC.LinearIterativeDivergenceToleranceSet(1.0E+10)
-linearSolver1DC.LinearIterativeRelativeToleranceSet(1.0E-5)
+linearSolver1DC.LinearIterativeRelativeToleranceSet(1.0E-8)
 linearSolver1DC.LinearIterativeAbsoluteToleranceSet(1.0E-8)
 linearSolver1DC.LinearIterativeGMRESRestartSet(3000)
 
@@ -1159,7 +1287,7 @@ nonlinearSolver1DNS.OutputTypeSet(CMISS.SolverOutputTypes.NONE)
 # Set the solver settings
 nonlinearSolver1DNS.NewtonAbsoluteToleranceSet(1.0E-8)
 nonlinearSolver1DNS.NewtonSolutionToleranceSet(1.0E-8)
-nonlinearSolver1DNS.NewtonRelativeToleranceSet(1.0E-5)
+nonlinearSolver1DNS.NewtonRelativeToleranceSet(1.0E-8)
 # Get the dynamic nonlinear linear solver
 linearSolver1DNS = CMISS.Solver()
 nonlinearSolver1DNS.NewtonLinearSolverGet(linearSolver1DNS)
@@ -1184,9 +1312,9 @@ nonlinearSolver3D = CMISS.Solver()
 dynamicSolver3D.DynamicNonlinearSolverGet(nonlinearSolver3D)
 nonlinearSolver3D.newtonJacobianCalculationType = CMISS.JacobianCalculationTypes.EQUATIONS
 nonlinearSolver3D.outputType = CMISS.SolverOutputTypes.NONE
-nonlinearSolver3D.newtonAbsoluteTolerance = 1.0E-8
+nonlinearSolver3D.newtonAbsoluteTolerance = 1.0E-10
 nonlinearSolver3D.newtonRelativeTolerance = 1.0E-8
-nonlinearSolver3D.newtonSolutionTolerance = 1.0E-8
+nonlinearSolver3D.newtonSolutionTolerance = 1.0E-10
 nonlinearSolver3D.newtonMaximumFunctionEvaluations = 10000
 linearSolver3D = CMISS.Solver()
 nonlinearSolver3D.NewtonLinearSolverGet(linearSolver3D)
@@ -1305,12 +1433,13 @@ for branch in range(2):
 #--------------
 # inlet boundary nodes p = f(t) - will be updated in pre-solve
 value = 0.0
-if fitData:
-    boundaryType = CMISS.BoundaryConditionsTypes.FIXED_FITTED
-    print('setting inlet boundary to fitted velocity')
-else:
-    boundaryType = CMISS.BoundaryConditionsTypes.FIXED_INLET
-    print('setting inlet boundary to fixed velocity')
+boundaryType = CMISS.BoundaryConditionsTypes.FIXED_INLET#FITTED
+# if fitData:
+#     boundaryType = CMISS.BoundaryConditionsTypes.FIXED_FITTED
+#     print('setting inlet boundary to fitted velocity')
+# else:
+#     boundaryType = CMISS.BoundaryConditionsTypes.FIXED_INLET
+#     print('setting inlet boundary to fixed velocity')
 
 for nodeNumber in inletNodes3D:
     nodeDomain=decomposition3D.NodeDomainGet(nodeNumber,meshComponent3DVelocity)
@@ -1380,6 +1509,22 @@ for terminalIdx in range (1,numberOfTerminalNodes1D+1):
         else:
             boundaryConditions1DC.SetNode(dependentField1DNS,CMISS.FieldVariableTypes.U,
                                           versionIdx,1,nodeNumber,2,CMISS.BoundaryConditionsTypes.FIXED_OUTLET,A[nodeNumber-1,0])
+
+
+# Set dummy nodes to fixed reference state
+if numberOfComputationalNodes > 1:
+    dummyNodeNumber = numberOfNodes1D+1
+    nodeDomain = decomposition1D.NodeDomainGet(dummyNodeNumber,meshComponentNumber)
+    if (nodeDomain == computationalNodeNumber):
+        print("Setting dummy Q BC for characteristic boundary node " + str(dummyNodeNumber))
+        boundaryConditions1DC.SetNode(dependentField1DNS,CMISS.FieldVariableTypes.U,
+                                      1,1,dummyNodeNumber,1,CMISS.BoundaryConditionsTypes.FIXED,0.0)
+    dummyNodeNumber = numberOfNodes1D+numberOfComputationalNodes*2+1
+    nodeDomain = decomposition1D.NodeDomainGet(dummyNodeNumber,meshComponentNumber)
+    if (nodeDomain == computationalNodeNumber):
+        print("Setting dummy A BC for characteristic boundary node " + str(dummyNodeNumber))
+        boundaryConditions1DC.SetNode(dependentField1DNS,CMISS.FieldVariableTypes.U,
+                                      1,1,dummyNodeNumber,2,CMISS.BoundaryConditionsTypes.FIXED,A0_dummy)
 solverEquations1DC.BoundaryConditionsCreateFinish()
 
 # Navier-Stokes
@@ -1408,9 +1553,25 @@ for terminalIdx in range (1,numberOfTerminalNodes1D+1):
             boundaryConditions1DNS.SetNode(dependentField1DNS,CMISS.FieldVariableTypes.U,
                                           versionIdx,1,nodeNumber,2,CMISS.BoundaryConditionsTypes.FIXED_OUTLET,A[nodeNumber-1,0])
 
+# Set dummy nodes to fixed
+if numberOfComputationalNodes > 1:
+    dummyNodeNumber = numberOfNodes1D+1
+    nodeDomain = decomposition1D.NodeDomainGet(dummyNodeNumber,meshComponentNumber)
+    if (nodeDomain == computationalNodeNumber):
+        print("Setting dummy Q BC for 1D Navier-Stokes boundary node " + str(dummyNodeNumber))
+        boundaryConditions1DNS.SetNode(dependentField1DNS,CMISS.FieldVariableTypes.U,
+                                      1,1,dummyNodeNumber,1,CMISS.BoundaryConditionsTypes.FIXED,0.0)
+    dummyNodeNumber = numberOfNodes1D+numberOfComputationalNodes*2+1
+    nodeDomain = decomposition1D.NodeDomainGet(dummyNodeNumber,meshComponentNumber)
+    if (nodeDomain == computationalNodeNumber):
+        print("Setting dummy A BC for 1D Navier-Stokes boundary node " + str(dummyNodeNumber))
+        boundaryConditions1DNS.SetNode(dependentField1DNS,CMISS.FieldVariableTypes.U,
+                                       1,1,dummyNodeNumber,2,CMISS.BoundaryConditionsTypes.FIXED,A0_dummy)
+
 solverEquations1DNS.BoundaryConditionsCreateFinish()
 
 if fitData:
+    numberOfNodes = numberOfNodes3D
     #=======================================================================
     # D a t a    P o i n t   T i m e   F i t t i n g
     #=======================================================================
@@ -1532,36 +1693,36 @@ if fitData:
     #=================================================================
     startIdwTime = time.time()
     nodeList = []
-    nodeLocations = numpy.zeros((numberOfNodes,numberOfDimensions))
-    nodeData = numpy.zeros((numberOfNodes,numberOfDimensions))
+    nodeLocations = numpy.zeros((numberOfNodes3D,numberOfDimensions))
+    nodeData = numpy.zeros((numberOfNodes3D,numberOfDimensions))
     # Get node locations from the mesh topology
-    for node in xrange(numberOfNodes):
+    for node in xrange(numberOfNodes3D):
         nodeId = node + 1
-        nodeNumber = nodes.UserNumberGet(nodeId)
+        nodeNumber = nodes3D.UserNumberGet(nodeId)
         nodeNumberPython = nodeNumber - 1
-        nodeDomain=decomposition.NodeDomainGet(nodeNumber,1)
+        nodeDomain=decomposition3D.NodeDomainGet(nodeNumber,1)
         if (nodeDomain == computationalNodeNumber):
             nodeList.append(nodeNumberPython)
             for component in xrange(numberOfDimensions):
                 componentId = component + 1
-                value = geometricField.ParameterSetGetNodeDP(CMISS.FieldVariableTypes.U,
+                value = geometricField3D.ParameterSetGetNodeDP(CMISS.FieldVariableTypes.U,
                                                              CMISS.FieldParameterSetTypes.VALUES,
                                                              1,1,nodeNumber,componentId)
                 nodeLocations[nodeNumberPython,component] = value
 
     # Calculate weights based on data point/node distance
     print("Calculating geometric-based weighting parameters")
-    dataList = [[] for i in range(numberOfNodes+1)]
-    sumWeights = numpy.zeros((numberOfNodes+1))
-    weight = numpy.zeros((numberOfNodes+1,((vicinityFactor*2)**3 + numberOfWallNodes*3)))
+    dataList = [[] for i in range(numberOfNodes3D+1)]
+    sumWeights = numpy.zeros((numberOfNodes3D+1))
+    weight = numpy.zeros((numberOfNodes3D+1,((vicinityFactor*2)**3 + numberOfWallNodes3D*3)))
     fit.CalculateWeights(p,vicinityFactor,dataPointResolution,pcvGeometry,
-                         nodeLocations,nodeList,wallNodes,dataList,weight,sumWeights)
+                         nodeLocations,nodeList,wallNodes3D,dataList,weight,sumWeights)
 
     # Apply weights to interpolate nodal velocity
     for timestep in xrange(startFit,numberOfTimesteps):
         # Calculate node-based velocities
-        velocityNodes = numpy.zeros((numberOfNodes,3))
-        fit.VectorFit(velocityDataPoints[timestep],velocityNodes,nodeList,wallNodes,dataList,weight,sumWeights)
+        velocityNodes = numpy.zeros((numberOfNodes3D,3))
+        fit.VectorFit(velocityDataPoints[timestep],velocityNodes,nodeList,wallNodes3D,dataList,weight,sumWeights)
         if timestep == startFit:
             # Update Field
             if initialiseVelocity:
@@ -1571,10 +1732,10 @@ if fitData:
                     for component in xrange(numberOfDimensions):
                         componentId = component + 1
                         value = velocityNodes[nodeNumberPython,component]
-                        dependentField.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,
-                                                                CMISS.FieldParameterSetTypes.VALUES,
-                                                                1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
-                                                                nodeNumberCmiss,componentId,value)
+                        dependentField3D.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,
+                                                                  CMISS.FieldParameterSetTypes.VALUES,
+                                                                  1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
+                                                                  nodeNumberCmiss,componentId,value)
             else:
                 velocityNodes = numpy.zeros((numberOfNodes,3))
 
@@ -1599,7 +1760,7 @@ if fitData:
                 gathered = []
                 #Gather process velocityNodes on node 0
                 if (computationalNodeNumber == 0):
-                    outputData = numpy.zeros((numberOfNodes,3))
+                    outputData = numpy.zeros((numberOfNodes3D,3))
                     for compNode in xrange(numberOfComputationalNodes):
                         filename = interpolatedDir + "fitData" + str(timestep) + ".part" + str(compNode) + ".dat"
                         if (os.path.exists(filename)):
@@ -1657,13 +1818,6 @@ if fitData:
 
 # Solve the coupled problem
 print("solving problem...")
-# make a new output directory if necessary
-outputDirectory = "./output/ReymondIliac_Dt" + str(round(timeIncrement,5)) + meshName + "/"
-try:
-    os.makedirs(outputDirectory)
-except OSError, e:
-    if e.errno != 17:
-        raise   
 # change to new directory and solve problem (note will return to original directory on exit)
 with ChangeDirectory(outputDirectory):
     problem.Solve()

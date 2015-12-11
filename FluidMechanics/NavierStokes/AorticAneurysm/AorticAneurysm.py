@@ -848,6 +848,9 @@ if initialiseVelocity and not fitData:
                                                             1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
                                                             nodeNumber,componentId,value)
 
+# Finish the parameter update
+dependentField.ParameterSetUpdateStart(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES)
+dependentField.ParameterSetUpdateFinish(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES)   
 if solveNSE:
     # Solve the problem
     print("solving problem...")

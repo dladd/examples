@@ -251,7 +251,7 @@ for i in range(len(A0[:])):
 
 pInit = 0.0 #0.0133322
 #pExternal = 0.0133322 # 100 mmHg
-pExternal = 70.0*0.000133322 # 80 mmHg
+pExternal = 0.0 #70.0*0.000133322 # 80 mmHg
 #pExternal = 0.0
 
 #A = A0
@@ -731,7 +731,7 @@ if (RCRBoundaries):
     #----------------------------------------------------------------------------------------------------------------------------
 
     # Create CellML models with specified RCR values
-    terminalPressure = pExternal #0.0#0.00133322 #pExternal #0.0 #0.00133322 # 0.0133 = 100 mmHg
+    terminalPressure = 0.0#0.00133322 #pExternal #0.0 #0.00133322 # 0.0133 = 100 mmHg
     modelDirectory = './input/CellMLModels/terminalArteryRCR/'
     Utilities1D.WriteCellMLRCRModels(terminalArteryNames,RCRParameters,terminalPressure,modelDirectory)    
 
@@ -1125,7 +1125,8 @@ if (CheckTimestepStability):
 #================================================================================================================================
 
 if RCRBoundaries:    
-    outputDirectory = "./output/Reymond2009ExpInputCellML_pExt70/"
+#    outputDirectory = "./output/Reymond2009ExpInputCellML_pExt70/"
+    outputDirectory = "./output/Reymond2009ExpInputCellML_pExt0/"
 elif nonReflecting:
 #    outputDirectory = "./output/" #"./output/Reymond2009ExpInputNonreflecting/"
     if simpleTube:
