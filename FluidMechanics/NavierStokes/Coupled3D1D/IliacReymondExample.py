@@ -113,8 +113,8 @@ outputFrequency = 1
 dynamicSolverNavierStokesTheta = [1.0]
 #couplingTolerance3D1D = 1.0E-4
 couplingTolerance1D0D = 1.0E-4
-flowTolerance3D1D = 1.0E-6
-stressTolerance3D1D = 1.0E-6
+flowTolerance3D1D = 1.0E-4
+stressTolerance3D1D = 1.0E-4
 relativeTolerance3D1D = 0.001
 
 #-------------------------------------------
@@ -182,7 +182,7 @@ elementsCouplingGroups1D = [elementsLeft1D,elementsRight1D]
 
 
 # make a new output directory if necessary
-outputDirectory = "./output/ReymondIliac_Dt" + str(round(timeIncrement,5)) + meshName + "/"
+outputDirectory = "./output/"#ReymondIliac_Dt" + str(round(timeIncrement,5)) + meshName + "/"
 try:
     os.makedirs(outputDirectory)
 except OSError, e:
