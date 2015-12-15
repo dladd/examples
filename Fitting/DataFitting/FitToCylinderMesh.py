@@ -640,47 +640,47 @@ numberOfWallNodes = len(wallNodes)
 # fields.Finalise()
 # print("Exported Geometric Mesh")
 
-#=================================================================
-# Data Projection on Geometric Field
-#=================================================================
+# #=================================================================
+# # Data Projection on Geometric Field
+# #=================================================================
 
-# Set up data projection
-dataProjection = CMISS.DataProjection()
-dataProjection.CreateStart(dataProjectionUserNumber,dataPoints,mesh)
-dataProjection.projectionType = CMISS.DataProjectionProjectionTypes.ALL_ELEMENTS
-dataProjection.CreateFinish()
+# # Set up data projection
+# dataProjection = CMISS.DataProjection()
+# dataProjection.CreateStart(dataProjectionUserNumber,dataPoints,mesh)
+# dataProjection.projectionType = CMISS.DataProjectionProjectionTypes.ALL_ELEMENTS
+# dataProjection.CreateFinish()
 
-timeProjectionStart = time.time()
+# timeProjectionStart = time.time()
 
-print('Evaluating data projection')
-# Evaluate data projection based on geometric field
-dataProjection.ProjectionEvaluate(geometricField)
+# print('Evaluating data projection')
+# # Evaluate data projection based on geometric field
+# dataProjection.ProjectionEvaluate(geometricField)
 
-print('Calculating data projection')
-# Create mesh topology for data projection
-mesh.TopologyDataPointsCalculateProjection(dataProjection)
-# Create decomposition topology for data projection
-decomposition.TopologyDataProjectionCalculate()
-timeProjectionFinish = time.time()
-dataProjectionTime = timeProjectionFinish - timeProjectionStart
-print("Data projection finished- time: " + str(dataProjectionTime))
+# print('Calculating data projection')
+# # Create mesh topology for data projection
+# mesh.TopologyDataPointsCalculateProjection(dataProjection)
+# # Create decomposition topology for data projection
+# decomposition.TopologyDataProjectionCalculate()
+# timeProjectionFinish = time.time()
+# dataProjectionTime = timeProjectionFinish - timeProjectionStart
+# print("Data projection finished- time: " + str(dataProjectionTime))
 
-for dataPoint in range(numberOfDataPoints):
-    dataPointId = dataPoint+1
-    xi = dataProjection.ResultXiGet(dataPointId,3)
-    nanFlag = False
-    boundaryFlag = False
-    tolerance = 1e-6
-    for i in xrange(3):
-        if (math.isnan(xi[i])):
-            nanFlag = True
-            print("projection xi NaN for data point: " + str(dataPointId))
-            print(xi)
-        if ((abs(xi[i]) < tolerance) or ((abs(xi[i] - 1.0)) < tolerance)):
-            boundaryFlag = True
-    if (nanFlag):
-        dataPointLocation = dataPoints.ValuesGet(dataPointId,3)
-        print("location: " + str(dataPointLocation))
+# for dataPoint in range(numberOfDataPoints):
+#     dataPointId = dataPoint+1
+#     xi = dataProjection.ResultXiGet(dataPointId,3)
+#     nanFlag = False
+#     boundaryFlag = False
+#     tolerance = 1e-6
+#     for i in xrange(3):
+#         if (math.isnan(xi[i])):
+#             nanFlag = True
+#             print("projection xi NaN for data point: " + str(dataPointId))
+#             print(xi)
+#         if ((abs(xi[i]) < tolerance) or ((abs(xi[i] - 1.0)) < tolerance)):
+#             boundaryFlag = True
+#     if (nanFlag):
+#         dataPointLocation = dataPoints.ValuesGet(dataPointId,3)
+#         print("location: " + str(dataPointLocation))
 
 #=================================================================
 # Equations Set
@@ -705,7 +705,8 @@ print("Setting up Dependent Field")
 # Create dependent field (fitted values from data points)
 dependentField = CMISS.Field()
 equationsSet.DependentCreateStart(dependentFieldUserNumber,dependentField)
-dependentField.VariableLabelSet(CMISS.FieldVariableTypes.U,"FemFit")
+#dependentField.VariableLabelSet(CMISS.FieldVariableTypes.U,"FemFit")
+dependentField.VariableLabelSet(CMISS.FieldVariableTypes.U,"IdwFit")
 equationsSet.DependentCreateFinish()
 # Initialise dependent field
 for component in range(numberOfDimensions):
@@ -753,141 +754,141 @@ if fitFem:
                                                    1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
                                                     nodeId,componentId,value[component])
 
-#=================================================================
-# Independent Field
-#=================================================================
+# #=================================================================
+# # Independent Field
+# #=================================================================
 
-print("Setting up Independent Field")
-independentField = CMISS.Field()
-independentField.CreateStart(independentFieldUserNumber,region)
-independentField.LabelSet("Independent")
-independentField.TypeSet(CMISS.FieldTypes.GENERAL)
-independentField.MeshDecompositionSet(decomposition)
-independentField.GeometricFieldSet(geometricField)
-independentField.DependentTypeSet(CMISS.FieldDependentTypes.INDEPENDENT)
+# print("Setting up Independent Field")
+# independentField = CMISS.Field()
+# independentField.CreateStart(independentFieldUserNumber,region)
+# independentField.LabelSet("Independent")
+# independentField.TypeSet(CMISS.FieldTypes.GENERAL)
+# independentField.MeshDecompositionSet(decomposition)
+# independentField.GeometricFieldSet(geometricField)
+# independentField.DependentTypeSet(CMISS.FieldDependentTypes.INDEPENDENT)
 
-independentField.NumberOfVariablesSet(4)
-independentField.VariableTypesSet([CMISS.FieldVariableTypes.U,
-                                CMISS.FieldVariableTypes.V,
-                                  CMISS.FieldVariableTypes.U1,
-                                  CMISS.FieldVariableTypes.U2])
-independentField.DimensionSet(CMISS.FieldVariableTypes.U,CMISS.FieldDimensionTypes.VECTOR)
-independentField.DimensionSet(CMISS.FieldVariableTypes.V,CMISS.FieldDimensionTypes.SCALAR)
-independentField.DimensionSet(CMISS.FieldVariableTypes.U1,CMISS.FieldDimensionTypes.VECTOR)
-independentField.DimensionSet(CMISS.FieldVariableTypes.U2,CMISS.FieldDimensionTypes.VECTOR)
-independentField.NumberOfComponentsSet(CMISS.FieldVariableTypes.U,numberOfDimensions)
-independentField.NumberOfComponentsSet(CMISS.FieldVariableTypes.V,1)
-independentField.NumberOfComponentsSet(CMISS.FieldVariableTypes.U1,numberOfDimensions)
-independentField.NumberOfComponentsSet(CMISS.FieldVariableTypes.U2,numberOfDimensions)
-independentField.VariableLabelSet(CMISS.FieldVariableTypes.U,"dataPointVector")
-independentField.VariableLabelSet(CMISS.FieldVariableTypes.V,"dataPointWeight")
-independentField.VariableLabelSet(CMISS.FieldVariableTypes.U1,"IdwFit")
-independentField.VariableLabelSet(CMISS.FieldVariableTypes.U2,"Analytic")
+# independentField.NumberOfVariablesSet(4)
+# independentField.VariableTypesSet([CMISS.FieldVariableTypes.U,
+#                                 CMISS.FieldVariableTypes.V,
+#                                   CMISS.FieldVariableTypes.U1,
+#                                   CMISS.FieldVariableTypes.U2])
+# independentField.DimensionSet(CMISS.FieldVariableTypes.U,CMISS.FieldDimensionTypes.VECTOR)
+# independentField.DimensionSet(CMISS.FieldVariableTypes.V,CMISS.FieldDimensionTypes.SCALAR)
+# independentField.DimensionSet(CMISS.FieldVariableTypes.U1,CMISS.FieldDimensionTypes.VECTOR)
+# independentField.DimensionSet(CMISS.FieldVariableTypes.U2,CMISS.FieldDimensionTypes.VECTOR)
+# independentField.NumberOfComponentsSet(CMISS.FieldVariableTypes.U,numberOfDimensions)
+# independentField.NumberOfComponentsSet(CMISS.FieldVariableTypes.V,1)
+# independentField.NumberOfComponentsSet(CMISS.FieldVariableTypes.U1,numberOfDimensions)
+# independentField.NumberOfComponentsSet(CMISS.FieldVariableTypes.U2,numberOfDimensions)
+# independentField.VariableLabelSet(CMISS.FieldVariableTypes.U,"dataPointVector")
+# independentField.VariableLabelSet(CMISS.FieldVariableTypes.V,"dataPointWeight")
+# independentField.VariableLabelSet(CMISS.FieldVariableTypes.U1,"IdwFit")
+# independentField.VariableLabelSet(CMISS.FieldVariableTypes.U2,"Analytic")
 
-print('debug: independent 2')
-independentField.ComponentInterpolationSet(CMISS.FieldVariableTypes.V,1,CMISS.FieldInterpolationTypes.DATA_POINT_BASED)
-for dimension in range(numberOfDimensions):
-    dimensionId = dimension+1
-    independentField.ComponentInterpolationSet(CMISS.FieldVariableTypes.U,dimensionId,CMISS.FieldInterpolationTypes.DATA_POINT_BASED)
-    independentField.ComponentInterpolationSet(CMISS.FieldVariableTypes.U1,dimensionId,CMISS.FieldInterpolationTypes.NODE_BASED)
-    independentField.ComponentInterpolationSet(CMISS.FieldVariableTypes.U2,dimensionId,CMISS.FieldInterpolationTypes.NODE_BASED)
+# print('debug: independent 2')
+# independentField.ComponentInterpolationSet(CMISS.FieldVariableTypes.V,1,CMISS.FieldInterpolationTypes.DATA_POINT_BASED)
+# for dimension in range(numberOfDimensions):
+#     dimensionId = dimension+1
+#     independentField.ComponentInterpolationSet(CMISS.FieldVariableTypes.U,dimensionId,CMISS.FieldInterpolationTypes.DATA_POINT_BASED)
+#     independentField.ComponentInterpolationSet(CMISS.FieldVariableTypes.U1,dimensionId,CMISS.FieldInterpolationTypes.NODE_BASED)
+#     independentField.ComponentInterpolationSet(CMISS.FieldVariableTypes.U2,dimensionId,CMISS.FieldInterpolationTypes.NODE_BASED)
 
-independentField.ScalingTypeSet(CMISS.FieldScalingTypes.NONE)
+# independentField.ScalingTypeSet(CMISS.FieldScalingTypes.NONE)
 
-print('debug: independent 3')
-independentField.ComponentMeshComponentSet(CMISS.FieldVariableTypes.V,1,meshComponent)
-for dimension in range(numberOfDimensions):
-    dimensionId = dimension + 1
-    independentField.ComponentMeshComponentSet(CMISS.FieldVariableTypes.U,dimensionId,meshComponent)
-    independentField.ComponentMeshComponentSet(CMISS.FieldVariableTypes.U1,dimensionId,meshComponent)
-    independentField.ComponentMeshComponentSet(CMISS.FieldVariableTypes.U2,dimensionId,meshComponent)
+# print('debug: independent 3')
+# independentField.ComponentMeshComponentSet(CMISS.FieldVariableTypes.V,1,meshComponent)
+# for dimension in range(numberOfDimensions):
+#     dimensionId = dimension + 1
+#     independentField.ComponentMeshComponentSet(CMISS.FieldVariableTypes.U,dimensionId,meshComponent)
+#     independentField.ComponentMeshComponentSet(CMISS.FieldVariableTypes.U1,dimensionId,meshComponent)
+#     independentField.ComponentMeshComponentSet(CMISS.FieldVariableTypes.U2,dimensionId,meshComponent)
 
-independentField.DataProjectionSet(dataProjection)
+# independentField.DataProjectionSet(dataProjection)
 
-print('debug: independent 4')
-independentField.CreateFinish()
-equationsSet.IndependentCreateStart(independentFieldUserNumber,independentField)
-equationsSet.IndependentCreateFinish()
-# Initialise independent field
+# print('debug: independent 4')
+# independentField.CreateFinish()
+# equationsSet.IndependentCreateStart(independentFieldUserNumber,independentField)
+# equationsSet.IndependentCreateFinish()
+# # Initialise independent field
 
-print('debug: independent 5')
-independentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,1,0.0)
-independentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,1,1.0)
-independentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U1,CMISS.FieldParameterSetTypes.VALUES,1,0.0)
-independentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U2,CMISS.FieldParameterSetTypes.VALUES,1,0.0)
+# print('debug: independent 5')
+# independentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,1,0.0)
+# independentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,1,1.0)
+# independentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U1,CMISS.FieldParameterSetTypes.VALUES,1,0.0)
+# independentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U2,CMISS.FieldParameterSetTypes.VALUES,1,0.0)
 
-print('setting analytic values')
-# Analytic values
-#-----------------------------------------------------------
-independentField.ParameterSetCreate(CMISS.FieldVariableTypes.U1,
-                                  CMISS.FieldParameterSetTypes.ANALYTIC_VALUES)
-independentField.ParameterSetCreate(CMISS.FieldVariableTypes.U2,
-                                  CMISS.FieldParameterSetTypes.ANALYTIC_VALUES)
+# print('setting analytic values')
+# # Analytic values
+# #-----------------------------------------------------------
+# independentField.ParameterSetCreate(CMISS.FieldVariableTypes.U1,
+#                                   CMISS.FieldParameterSetTypes.ANALYTIC_VALUES)
+# independentField.ParameterSetCreate(CMISS.FieldVariableTypes.U2,
+#                                   CMISS.FieldParameterSetTypes.ANALYTIC_VALUES)
 
-independentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U1,
-                                          CMISS.FieldParameterSetTypes.ANALYTIC_VALUES,
-                                           1,0.0)
-independentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U2,
-                                          CMISS.FieldParameterSetTypes.ANALYTIC_VALUES,
-                                           1,0.0)
+# independentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U1,
+#                                           CMISS.FieldParameterSetTypes.ANALYTIC_VALUES,
+#                                            1,0.0)
+# independentField.ComponentValuesInitialiseDP(CMISS.FieldVariableTypes.U2,
+#                                           CMISS.FieldParameterSetTypes.ANALYTIC_VALUES,
+#                                            1,0.0)
 
-#set node-based analytic field to function of geometric field
-for node in range(numberOfNodes):
-    nodeId = node + 1
-    nodeDomain=decomposition.NodeDomainGet(nodeId,meshComponent)
-    if (nodeDomain == computationalNodeNumber):
-        value = numpy.zeros(3)
-        meshPosition = numpy.zeros((3))
-        for component in range(numberOfDimensions):
-            componentId = component+1
-            geometricValue=geometricField.ParameterSetGetNodeDP(CMISS.FieldVariableTypes.U,
-                                                                CMISS.FieldParameterSetTypes.VALUES,
-                                                                1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,nodeId,componentId)
-            meshPosition[component] = geometricValue
-        value = parabolic(meshPosition,radius,uMean,axialComponent)
-        for component in range(numberOfDimensions):
-            componentId = component+1        
-            independentField.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U1,
-                                                   CMISS.FieldParameterSetTypes.ANALYTIC_VALUES,
-                                                   1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
-                                                    nodeId,componentId,value[component])
-            independentField.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U2,
-                                                   CMISS.FieldParameterSetTypes.VALUES,
-                                                   1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
-                                                    nodeId,componentId,value[component])
-            independentField.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U2,
-                                                   CMISS.FieldParameterSetTypes.ANALYTIC_VALUES,
-                                                   1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
-                                                    nodeId,componentId,value[component])
+# #set node-based analytic field to function of geometric field
+# for node in range(numberOfNodes):
+#     nodeId = node + 1
+#     nodeDomain=decomposition.NodeDomainGet(nodeId,meshComponent)
+#     if (nodeDomain == computationalNodeNumber):
+#         value = numpy.zeros(3)
+#         meshPosition = numpy.zeros((3))
+#         for component in range(numberOfDimensions):
+#             componentId = component+1
+#             geometricValue=geometricField.ParameterSetGetNodeDP(CMISS.FieldVariableTypes.U,
+#                                                                 CMISS.FieldParameterSetTypes.VALUES,
+#                                                                 1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,nodeId,componentId)
+#             meshPosition[component] = geometricValue
+#         value = parabolic(meshPosition,radius,uMean,axialComponent)
+#         for component in range(numberOfDimensions):
+#             componentId = component+1        
+#             independentField.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U1,
+#                                                    CMISS.FieldParameterSetTypes.ANALYTIC_VALUES,
+#                                                    1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
+#                                                     nodeId,componentId,value[component])
+#             independentField.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U2,
+#                                                    CMISS.FieldParameterSetTypes.VALUES,
+#                                                    1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
+#                                                     nodeId,componentId,value[component])
+#             independentField.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U2,
+#                                                    CMISS.FieldParameterSetTypes.ANALYTIC_VALUES,
+#                                                    1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
+#                                                     nodeId,componentId,value[component])
 
-# Set independent field U values to parabolic profile at data points,
-#    V values to user-specified weights (just 1 here as these are all embedded points)
-#-----------------------------------------------------------------------------------------
-for element in range(numberOfElements):
-    elementId = element + 1
-    elementDomain = decomposition.ElementDomainGet(elementId)
-    if (elementDomain == computationalNodeNumber):
-        numberOfProjectedDataPoints = decomposition.TopologyNumberOfElementDataPointsGet(elementId)
-        for dataPoint in range(numberOfProjectedDataPoints):
-            dataPointId = dataPoint + 1
-            dataPointNumber = decomposition.TopologyElementDataPointUserNumberGet(elementId,dataPointId)
-            # set data point field values
-            for component in range(numberOfDimensions):
-                componentId = component + 1
-                dataPointNumberIndex = dataPointNumber - 1
-                value = velocityData[dataPointNumberIndex,component]
-                independentField.ParameterSetUpdateElementDataPointDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,elementId,dataPointId,componentId,value)
+# # Set independent field U values to parabolic profile at data points,
+# #    V values to user-specified weights (just 1 here as these are all embedded points)
+# #-----------------------------------------------------------------------------------------
+# for element in range(numberOfElements):
+#     elementId = element + 1
+#     elementDomain = decomposition.ElementDomainGet(elementId)
+#     if (elementDomain == computationalNodeNumber):
+#         numberOfProjectedDataPoints = decomposition.TopologyNumberOfElementDataPointsGet(elementId)
+#         for dataPoint in range(numberOfProjectedDataPoints):
+#             dataPointId = dataPoint + 1
+#             dataPointNumber = decomposition.TopologyElementDataPointUserNumberGet(elementId,dataPointId)
+#             # set data point field values
+#             for component in range(numberOfDimensions):
+#                 componentId = component + 1
+#                 dataPointNumberIndex = dataPointNumber - 1
+#                 value = velocityData[dataPointNumberIndex,component]
+#                 independentField.ParameterSetUpdateElementDataPointDP(CMISS.FieldVariableTypes.U,CMISS.FieldParameterSetTypes.VALUES,elementId,dataPointId,componentId,value)
 
-            # Set data point weights
-            value = 1.0
-            independentField.ParameterSetUpdateElementDataPointDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,elementId,dataPointId,1,value)
+#             # Set data point weights
+#             value = 1.0
+#             independentField.ParameterSetUpdateElementDataPointDP(CMISS.FieldVariableTypes.V,CMISS.FieldParameterSetTypes.VALUES,elementId,dataPointId,1,value)
 
-print('exporting dependent elems')
-# Export mesh geometry
-fields = CMISS.Fields()
-fields.CreateRegion(region)
-fields.ElementsExport("Dependent","FORTRAN")
-fields.Finalise()
+# print('exporting dependent elems')
+# # Export mesh geometry
+# fields = CMISS.Fields()
+# fields.CreateRegion(region)
+# fields.ElementsExport("Dependent","FORTRAN")
+# fields.Finalise()
 
 #=================================================================
 # Inverse Distance Weighting
@@ -1080,7 +1081,7 @@ def solveIdwWithParameters(idwParameters):
 
             for component in range(numberOfDimensions):
                 componentId = component + 1
-                independentField.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U1,
+                dependentField.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,
                                                           CMISS.FieldParameterSetTypes.VALUES,
                                                           1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
                                                           nodeId,componentId,nodeVector[component])
@@ -1137,7 +1138,7 @@ if (fitIdw):
             for component in xrange(numberOfDimensions):
                 componentId = component + 1
                 value = nodeData[nodeNumberPython,component]
-                independentField.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U1,
+                dependentField.ParameterSetUpdateNodeDP(CMISS.FieldVariableTypes.U,
                                                           CMISS.FieldParameterSetTypes.VALUES,
                                                           1,CMISS.GlobalDerivativeConstants.NO_GLOBAL_DERIV,
                                                           nodeNumberCmiss,componentId,value)
@@ -1371,11 +1372,11 @@ try:
 except OSError, e:
     if e.errno != 17:
         raise   
-rmseFile = outputDirectory+'RMSE.txt'
+rmseFile = outputDirectory+'RMSE'+'CDR'+str(diameterResolution)+'.txt'
 print('Writing error to RMSE error file: ' + rmseFile)
 try:
     with open(rmseFile, 'a') as file:
-        file.write(str(diameterResolution) + ', ' + str(dataResolutionIncrement)+ ', ' + str(error) + ', \n')            
+        file.write(str(edgelength)+', '+str(diameterResolution) + ', ' + str(dataResolutionIncrement)+ ', ' + str(error) + ', \n')            
 except IOError:
     print ('Could not open RMSE log file: ' + rmseFile)
 outputFile = outputDirectory + meshName + '_CDR' + str(diameterResolution)

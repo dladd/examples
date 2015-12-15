@@ -385,7 +385,7 @@ lidVelocity = [1.0,0.0]
 density = 1.0 #1.05e-3
 # Note: viscosity will be calculated based on specified Reynolds number
 RBSTypes = [True,False]
-timeIncrement = 1.0
+timeIncrement = 0.1
 stopTime = 300.001
 fdJacobian = False
 analyticLidVelocity = True
