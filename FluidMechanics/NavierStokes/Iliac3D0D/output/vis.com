@@ -1,6 +1,6 @@
 $lastStep = 100;
 $numProcs = 1;
-$tinc = 5;
+$tinc = 1;
 
 for ($i=0;$i<=$lastStep;$i=$i+$tinc) 
 {
@@ -49,10 +49,11 @@ gfx def field /3DIliac/velmag3D magnitude field velocity3D;
 ! gfx def field /1D_LegArteries/firstTerm multiply_components fields sqA beta
 ! gfx def field /1D_LegArteries/pOfA1D add fields firstTerm secondTerm
 
-gfx mod g_e /3DIliac surfaces select_on material default data pressure3D spectrum default selected_material default_selected render_shaded;
+#gfx mod g_e /3DIliac surfaces select_on material default data pressure3D spectrum default selected_material default_selected render_shaded;
+gfx modify g_element /3DIliac node_points as node_spheres glyph arrow_solid general size "0.01*0.01*0.01" centre 0,0,0 font default orientation velocity3D scale_factors "200.0*100.0*100.0" data pressure3D select_on material default; 
 #gfx modify g_element /1D_LegArteries lines select_on material default data pressure1D spectrum default selected_material default_selected;
-gfx modify g_element /3DIliac surfaces select_on material default data pressure3D spectrum default selected_material default_selected render_shaded;
-gfx modify spectrum default autorange;
+#gfx modify g_element /3DIliac surfaces select_on material default data pressure3D spectrum default selected_material default_selected render_shaded;
+gfx modify spectrum default linear reverse range 0.0 0.00005 extend_above extend_below rainbow colour_range 0 1 component 1;
 
 gfx create window 1;
 gfx create time_editor;
