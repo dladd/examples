@@ -1,0 +1,65 @@
+<?xml version='1.0'?>
+<model cmeta:id="CRTerminalModel" name="CR" xmlns="http://www.cellml.org/cellml/1.0#" xmlns:cellml="http://www.cellml.org/cellml/1.0#" xmlns:cmeta="http://www.cellml.org/metadata/1.0#">
+    <units name="pressure_unit">
+        <unit units="gram"/>
+        <unit exponent="-1" prefix="milli" units="metre"/>
+        <unit exponent="-2" prefix="milli" units="second"/>
+    </units>
+    <units name="flow_unit">
+        <unit exponent="-1" prefix="milli" units="second"/>
+        <unit exponent="3" prefix="milli" units="metre"/>
+    </units>
+    <units name="resistance_unit">
+        <unit units="pressure_unit"/>
+        <unit exponent="-3" prefix="milli" units="metre"/>
+        <unit prefix="milli" units="second"/>
+    </units>
+    <units name="capacitance_unit">
+        <unit exponent="-1" units="pressure_unit"/>
+        <unit exponent="3" prefix="milli" units="metre"/>
+    </units>
+    <units name="time_unit">
+        <unit prefix="milli" units="second"/>
+    </units>
+    <units name="pressure_rate_unit">
+        <unit units="pressure_unit"/>
+        <unit exponent="-1" units="time_unit"/>
+    </units>
+    <component name="Circuit">
+        <variable initial_value="0.0" name="Pi" units="pressure_unit"/>
+        <variable initial_value="0.0" name="Qi" units="flow_unit"/>
+        <variable initial_value="0.0" name="Po" units="pressure_unit"/>
+        <variable initial_value="1e-3" name="R" units="resistance_unit"/>
+        <variable initial_value="7.5e5" name="C" units="capacitance_unit"/>
+        <variable name="time" units="time_unit"/>
+        <math xmlns="http://www.w3.org/1998/Math/MathML">
+            <apply cmeta:id="pressure_rate_unit">
+                <eq/>
+                <apply>
+                    <diff/>
+                    <bvar>
+                        <ci>time</ci>
+                    </bvar>
+                    <ci>Pi</ci>
+                </apply>
+                <apply>
+                    <divide/>
+                    <apply>
+                        <minus/>
+                        <ci>Qi</ci>
+                        <apply>
+                            <divide/>
+                            <apply>
+                                <minus/>
+                                <ci>Pi</ci>
+                                <ci>Po</ci>
+                            </apply>
+                            <ci>R</ci>
+                        </apply>
+                    </apply>
+                    <ci>C</ci>
+                </apply>
+            </apply>
+        </math>
+    </component>
+</model>
